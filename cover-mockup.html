@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clipilot Cover Mockup</title>
+<style>
+:root{--bg:#08080A;--surface:#131316}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:#fff;font-family:"Inter",system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:32px;padding:24px}
+h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:#888;font-weight:600}
+.samples{display:flex;flex-wrap:wrap;gap:24px;justify-content:center}
+.sample{display:flex;flex-direction:column;align-items:center;gap:12px}
+.sample-label{font-size:12px;color:#666}
+canvas{border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.6)}
+</style>
+</head>
+<body>
+<h2>Cover Preview Samples (Simulated)</h2>
+<div class="samples">
+  <div class="sample">
+    <canvas id="c1"></canvas>
+    <span class="sample-label">Pet video — "When the cat distribution system picks you 😼"</span>
+  </div>
+  <div class="sample">
+    <canvas id="c2"></canvas>
+    <span class="sample-label">Food video — "This street food stall changed my life 🤯"</span>
+  </div>
+  <div class="sample">
+    <canvas id="c3"></canvas>
+    <span class="sample-label">Dance video — "Learning this viral dance in 60 seconds 🕺"</span>
+  </div>
+</div>
+<script>
+// Simulate video frames with gradients + emoji/silhouettes
+function drawMockCover(canvasId, bgColors, emoji, emojiSize, title) {
+  const c = document.getElementById(canvasId);
+  const w = 300, h = 533; // 9:16 TikTok aspect
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+
+  // Background gradient (simulating a video frame)
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  bgColors.forEach((color, i) => grad.addColorStop(i / (bgColors.length - 1), color));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Add subtle texture / vignette
+  const vignette = ctx.createRadialGradient(w/2, h/2, w*0.4, w/2, h/2, w*0.85);
+  vignette.addColorStop(0, 'rgba(0,0,0,0)');
+  vignette.addColorStop(1, 'rgba(0,0,0,0.35)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, w, h);
+
+  // Emoji (simulating subject)
+  ctx.font = `${emojiSize}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, w/2, h*0.4);
+
+  // Bottom gradient overlay
+  const overlayGrad = ctx.createLinearGradient(0, h*0.62, 0, h);
+  overlayGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  overlayGrad.addColorStop(0.5, 'rgba(0,0,0,0.55)');
+  overlayGrad.addColorStop(1, 'rgba(0,0,0,0.82)');
+  ctx.fillStyle = overlayGrad;
+  ctx.fillRect(0, h*0.62, w, h - h*0.62);
+
+  // TikTok-style UI elements
+  // Small text above title (like TikTok's overlay style)
+  ctx.font = '11px "Inter",sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.textAlign = 'left';
+  ctx.fillText('✨ Clipilot AI recommended', 16, h*0.77);
+
+  // Title text
+  const fontSize = 22;
+  ctx.font = `700 ${fontSize}px "Inter",sans-serif`;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'left';
+  ctx.shadowColor = 'rgba(0,0,0,0.9)';
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 2;
+
+  // Word wrap title
+  const words = title.split(' ');
+  const lines = [];
+  let line = '';
+  const maxW = w - 44;
+  ctx.font = `700 ${fontSize}px "Inter",sans-serif`;
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = word; }
+    else { line = test; }
+  }
+  if (line) lines.push(line);
+
+  const lh = fontSize * 1.35;
+  const startY = h*0.81;
+  lines.forEach((l, i) => ctx.fillText(l, 22, startY + i * lh));
+
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+
+  // Small category tag (top left - like TikTok For You style)
+  ctx.font = '600 11px "Inter",sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.textAlign = 'left';
+  const tagBgW = ctx.measureText('For You').width + 24;
+  // tag pill background
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.beginPath();
+  ctx.roundRect(12, 12, tagBgW, 24, 12);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fillText('For You', 24, 28);
+}
+
+// Helper: roundRect polyfill
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){this.beginPath();this.moveTo(x+r,y);this.lineTo(x+w-r,y);this.arcTo(x+w,y,x+w,y+r,r);this.lineTo(x+w,y+h-r);this.arcTo(x+w,y+h,x+w-r,y+h,r);this.lineTo(x+r,y+h);this.arcTo(x,y+h,x,y+h-r,r);this.lineTo(x,y+r);this.arcTo(x,y,x+r,y,r);this.closePath();};
+}
+
+// Draw three samples
+// 1. Cat / pet
+drawMockCover('c1',
+  ['#3b2d2a','#5c3d35','#7a4a3a','#5c3d35','#3b2d2a'],
+  '🐱', 110,
+  'When the cat distribution system picks you 😼'
+);
+
+// 2. Food
+drawMockCover('c2',
+  ['#2a2018','#4a3520','#6b4528','#4a3520','#2a2018'],
+  '🍜', 110,
+  'This street food stall changed my life 🤯'
+);
+
+// 3. Dance
+drawMockCover('c3',
+  ['#1a1a2e','#2d2d4a','#3d3d6b','#2d2d4a','#1a1a2e'],
+  '💃', 110,
+  'Learning this viral dance in 60 seconds 🕺'
+);
+</script>
+</body>
+</html>

@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clipilot AI v1 — TikTok Creator Tool</title>
+<style>
+:root {
+  --bg:#08080A;--surface:#131316;--surface-hover:#1A1A1F;--border:#252530;
+  --text:#F0F0F0;--text-muted:#888892;--accent:#7C3AED;
+  --accent-glow:rgba(124,58,237,.25);--accent-soft:rgba(124,58,237,.08);
+  --amber:#F59E0B;--radius:12px;--radius-sm:8px;
+  --font:"Inter",system-ui,-apple-system,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;line-height:1.6}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+.header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;background:var(--bg);backdrop-filter:blur(12px)}
+.logo{font-size:18px;font-weight:700;letter-spacing:-.02em}
+.logo span{color:var(--accent)}
+.settings-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.settings-btn:hover{background:var(--surface-hover);border-color:var(--accent)}
+
+.main{display:grid;grid-template-columns:420px 1fr;gap:16px;padding:16px;max-width:1520px;margin:0 auto;min-height:calc(100vh - 64px)}
+@media(max-width:1100px){.main{grid-template-columns:1fr}}
+
+.left-col{display:flex;flex-direction:column;gap:14px}
+
+.panel{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:16px}
+.panel-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:12px;font-weight:600}
+
+/* Upload */
+.upload-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed var(--border);border-radius:var(--radius);padding:30px 16px;cursor:pointer;text-align:center;transition:all .2s;min-height:140px}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:var(--accent-soft)}
+.upload-zone h3{font-size:15px;font-weight:600;margin:6px 0 2px}
+.upload-hint{color:var(--text-muted);font-size:11px}
+.upload-zone input[type=file]{display:none}
+
+.video-player-wrap{display:none;flex-direction:column;gap:6px}
+.video-player-wrap video{width:100%;max-height:300px;border-radius:var(--radius-sm);background:#000}
+.video-meta{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-muted)}
+
+.btn-sm{padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:11px}
+.btn-sm:hover{background:var(--surface-hover);border-color:var(--accent)}
+
+.btn-primary{padding:10px 20px;border-radius:var(--radius);border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.btn-primary:hover{box-shadow:0 0 20px var(--accent-glow);transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none}
+
+.analyze-bar{display:flex;gap:8px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.analyze-bar .btn-primary{flex:1}
+.frame-estimate{font-size:10px;color:var(--text-muted);white-space:nowrap}
+
+/* ── TikTok Preview Phone ── */
+.phone-frame{width:220px;border-radius:24px;border:3px solid #2a2a35;background:#000;overflow:hidden;box-shadow:0 6px 30px rgba(0,0,0,.5);margin:0 auto}
+.phone-notch{height:18px;background:#000;display:flex;align-items:center;justify-content:center}
+.phone-notch-dot{width:50px;height:3px;background:#1a1a20;border-radius:2px}
+.phone-cover-wrap{position:relative;line-height:0}
+.phone-cover-wrap canvas{width:100%;display:block}
+.phone-info{padding:10px 12px}
+.phone-handle{font-size:12px;font-weight:700;color:#fff;margin-bottom:2px}
+.phone-desc{font-size:10px;color:#bbb;line-height:1.5;margin-bottom:6px;white-space:pre-wrap;max-height:60px;overflow:hidden}
+.phone-tags{display:flex;flex-wrap:wrap;gap:3px}
+.phone-tag{font-size:9px;color:#8bb8f7;font-weight:600}
+
+/* ── Empty state ── */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-muted);text-align:center;padding:60px 20px;gap:8px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);min-height:300px}
+.empty-state .icon{font-size:40px;opacity:.4}
+.empty-state p{font-size:14px;line-height:1.6}
+
+/* ── Results sections ── */
+.result-section{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:14px 16px;margin-bottom:12px}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.section-header h4{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)}
+.regenerate-btn{width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.regenerate-btn:hover{color:var(--accent);border-color:var(--accent)}
+.regenerate-btn.spinning{animation:spin 1s linear infinite;pointer-events:none}
+
+.style-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:16px;background:var(--accent-soft);color:var(--accent);font-size:11px;margin-bottom:8px}
+.style-tag select{border:none;background:transparent;color:var(--accent);font-size:11px;font-family:var(--font);cursor:pointer;outline:none}
+
+/* ── Cover Section (1 large + 3 thumbnails) ── */
+.cover-layout{display:flex;flex-direction:column;gap:10px;align-items:center}
+.cover-main-wrap{position:relative;width:100%;max-width:280px}
+.cover-main{border-radius:var(--radius-sm);overflow:hidden;border:2px solid var(--accent);box-shadow:0 0 16px var(--accent-glow);line-height:0}
+.cover-main canvas{width:100%;display:block}
+.cover-thumbs{display:flex;gap:8px;justify-content:center}
+.cover-thumb{width:68px;border-radius:6px;overflow:hidden;cursor:pointer;border:2px solid var(--border);transition:all .2s;opacity:.6;line-height:0}
+.cover-thumb:hover{opacity:.85;border-color:var(--text-muted)}
+.cover-thumb.selected{border-color:var(--accent);opacity:1;box-shadow:0 0 8px var(--accent-glow)}
+.cover-thumb canvas{width:100%;display:block}
+.cover-thumb-label{position:absolute;top:2px;left:2px;background:rgba(0,0,0,.75);color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600}
+.cover-download-btn{margin-top:4px;padding:5px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:11px}
+.cover-download-btn:hover{background:var(--surface-hover);border-color:var(--accent)}
+
+/* ── Titles (single-select) ── */
+.title-options{display:flex;flex-direction:column;gap:5px}
+.title-option{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;transition:all .15s;background:var(--bg);font-size:13px;line-height:1.3}
+.title-option:hover{border-color:var(--accent-soft)}
+.title-option.active{border-color:var(--accent);background:var(--accent-soft)}
+.title-option .radio{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.title-option.active .radio{border-color:var(--accent);background:var(--accent)}
+.title-option.active .radio::after{content:'';width:5px;height:5px;border-radius:50%;background:#fff}
+.title-option .text{flex:1}
+.title-option .star{font-size:10px;margin-left:auto;opacity:.6}
+.title-option.active .star{color:var(--amber);opacity:1}
+
+/* ── Description ── */
+.description-box{padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);font-size:13px;line-height:1.6;min-height:60px;outline:none;white-space:pre-wrap;word-break:break-word}
+.description-box:focus{border-color:var(--accent)}
+.description-box[contenteditable=true]{cursor:text}
+
+/* ── Hashtags ── */
+.hashtag-grid{display:flex;flex-wrap:wrap;gap:5px}
+.hashtag-pill{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:14px;border:1px solid var(--border);cursor:pointer;font-size:11px;transition:all .15s;user-select:none;background:var(--bg)}
+.hashtag-pill:hover{border-color:var(--accent)}
+.hashtag-pill.selected{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.hashtag-pill .check{font-size:9px;opacity:.4}
+.hashtag-pill.selected .check{opacity:1}
+.tier-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:6px 0 2px;font-weight:600}
+
+/* ── Copy bar ── */
+.copy-row{padding-top:6px}
+.copy-row .btn-primary{width:100%}
+
+/* ── Drawer ── */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:90;opacity:0;pointer-events:none;transition:opacity .3s}
+.drawer-overlay.open{opacity:1;pointer-events:auto}
+.settings-drawer{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:92vw;background:var(--surface);border-left:1px solid var(--border);z-index:100;transform:translateX(100%);transition:transform .3s ease;padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.settings-drawer.open{transform:translateX(0)}
+.drawer-header{display:flex;justify-content:space-between;align-items:center}
+.drawer-header h2{font-size:16px;font-weight:700}
+.drawer-close{width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)}
+.form-group input,.form-group select,.form-group textarea{padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;font-family:var(--font);outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
+.form-hint{font-size:9px;color:var(--text-muted);line-height:1.4}
+.tag-input-wrap{display:flex;flex-wrap:wrap;gap:4px;padding:5px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);min-height:34px;align-items:center;cursor:text}
+.tag-input-wrap:focus-within{border-color:var(--accent)}
+.tag-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:14px;background:var(--accent-soft);color:var(--accent);font-size:10px}
+.tag-pill button{background:none;border:none;color:inherit;cursor:pointer;font-size:12px;line-height:1;padding:0}
+.tag-input{border:none;background:transparent;color:var(--text);font-size:12px;outline:none;flex:1;min-width:70px;font-family:var(--font)}
+
+/* Loading */
+.loading-overlay{position:fixed;inset:0;background:rgba(8,8,10,.92);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;pointer-events:none;opacity:0;transition:opacity .3s}
+.loading-overlay.active{opacity:1;pointer-events:auto}
+.loading-pulse{width:48px;height:48px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:spin .8s linear infinite}
+.loading-stage{font-size:14px;font-weight:600}
+.loading-detail{font-size:12px;color:var(--text-muted);text-align:center;max-width:380px;line-height:1.5}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 20px;font-size:12px;z-index:300;transition:transform .3s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">Clipilot<span>AI</span></div>
+  <button class="settings-btn" id="settingsBtn" title="Settings">⚙</button>
+</header>
+
+<main class="main">
+  <!-- ═══ LEFT ═══ -->
+  <div class="left-col">
+    <div class="panel">
+      <div class="panel-label">Video</div>
+      <div class="upload-zone" id="uploadZone">
+        <div style="font-size:36px;margin-bottom:4px">🎬</div>
+        <h3>Drop your video here</h3>
+        <p class="upload-hint">MP4 / MOV · Max 50MB · 3–60s</p>
+        <input type="file" id="fileInput" accept="video/mp4,video/mov,video/quicktime">
+      </div>
+      <div class="video-player-wrap" id="videoPlayerWrap">
+        <video id="videoPlayer" controls playsinline></video>
+        <div class="video-meta">
+          <span id="videoMeta"></span>
+          <button class="btn-sm" id="reuploadBtn">Change video</button>
+        </div>
+      </div>
+      <div class="analyze-bar">
+        <button class="btn-primary" id="analyzeBtn" disabled>🎬 Analyze</button>
+        <span class="frame-estimate" id="frameEstimate"></span>
+      </div>
+    </div>
+
+    <!-- Preview (hidden until analysis) -->
+    <div class="panel" id="previewPanel" style="display:none">
+      <div class="panel-label">📱 TikTok Preview</div>
+      <div class="phone-frame">
+        <div class="phone-notch"><div class="phone-notch-dot"></div></div>
+        <div class="phone-cover-wrap">
+          <canvas id="phoneCoverCanvas" width="214" height="380"></canvas>
+        </div>
+        <div class="phone-info">
+          <div class="phone-handle">@creator</div>
+          <div class="phone-desc" id="phoneDesc"></div>
+          <div class="phone-tags" id="phoneTags"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT: Results ═══ -->
+  <div class="right-col" id="rightCol">
+    <!-- Empty state (shown before analysis) -->
+    <div class="empty-state" id="emptyState">
+      <div class="icon">✨</div>
+      <p>Upload a video and click Analyze<br>to generate your TikTok content package</p>
+    </div>
+
+    <!-- Results (hidden before analysis) -->
+    <div id="resultsWrapper" style="display:none">
+      <div class="style-tag" id="styleTag" style="display:none">
+        AI detected: <select id="styleOverride"><option value="">Loading...</option></select>
+      </div>
+
+      <!-- Cover -->
+      <div class="result-section">
+        <div class="section-header">
+          <h4>Cover</h4>
+          <button class="regenerate-btn" data-skill="cover" title="Regenerate">↻</button>
+        </div>
+        <div class="cover-layout" id="coverLayout"></div>
+      </div>
+
+      <!-- Titles -->
+      <div class="result-section">
+        <div class="section-header">
+          <h4>Title — Choose one</h4>
+          <button class="regenerate-btn" data-skill="title" title="Regenerate">↻</button>
+        </div>
+        <div class="title-options" id="titleOptions"></div>
+      </div>
+
+      <!-- Description -->
+      <div class="result-section">
+        <div class="section-header">
+          <h4>Description</h4>
+          <button class="regenerate-btn" data-skill="description" title="Regenerate">↻</button>
+        </div>
+        <div class="description-box" id="descriptionBox" contenteditable="true"></div>
+      </div>
+
+      <!-- Hashtags -->
+      <div class="result-section">
+        <div class="section-header">
+          <h4>Hashtags (click to select)</h4>
+          <button class="regenerate-btn" data-skill="hashtags" title="Regenerate">↻</button>
+        </div>
+        <div id="hashtagArea"></div>
+      </div>
+
+      <!-- Copy -->
+      <div class="copy-row">
+        <button class="btn-primary" id="copyAllBtn">📋 Copy to Clipboard</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Settings Drawer -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<aside class="settings-drawer" id="settingsDrawer">
+  <div class="drawer-header"><h2>Settings</h2><button class="drawer-close" id="drawerClose">✕</button></div>
+  <div class="form-group">
+    <label>AI Provider</label>
+    <select id="settingProvider">
+      <option value="anthropic">Anthropic (Claude)</option>
+      <option value="openai">OpenAI (GPT-4o)</option>
+      <option value="qwen">Qwen (通义千问)</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label id="settingKeyLabel">API Key</label>
+    <input type="password" id="settingApiKey" placeholder="sk-ant-...">
+    <span class="form-hint">Stored in browser localStorage only.</span>
+  </div>
+  <div class="form-group">
+    <label>Model</label>
+    <select id="settingModel"></select>
+  </div>
+  <div style="border-top:1px solid var(--border);padding-top:4px"></div>
+  <div class="form-group">
+    <label style="display:flex;align-items:center;gap:6px">
+      <input type="checkbox" id="settingTranscribe" style="width:auto;accent-color:var(--accent)">
+      Enable audio transcription
+    </label>
+    <span class="form-hint">Extracts audio → Whisper API. Requires OpenAI key.</span>
+  </div>
+  <div class="form-group" id="transcribeKeyGroup" style="display:none">
+    <label>OpenAI Key (for Whisper)</label>
+    <input type="password" id="settingTranscribeKey" placeholder="sk-proj-...">
+  </div>
+  <div style="border-top:1px solid var(--border);padding-top:4px"></div>
+  <div class="form-group">
+    <label>Video Style</label>
+    <select id="settingStyle">
+      <option value="auto">Auto-detect</option>
+      <option value="vlog">Vlog</option><option value="food">Food</option>
+      <option value="dance">Dance</option><option value="pet">Pet</option>
+      <option value="comedy">Comedy</option><option value="tutorial">Tutorial</option>
+      <option value="fashion">Fashion</option><option value="travel">Travel</option>
+      <option value="fitness">Fitness</option>
+      <option value="custom">Custom</option>
+    </select>
+  </div>
+  <div class="form-group" id="customStyleGroup" style="display:none">
+    <label>Custom Style</label><input type="text" id="settingCustomStyle" placeholder="Describe video style...">
+  </div>
+  <div class="form-group">
+    <label>Target Market</label>
+    <select id="settingMarket">
+      <option value="us">United States</option><option value="jp">Japan</option>
+      <option value="sea">Southeast Asia</option><option value="eu">Europe</option>
+      <option value="cn">China (Overseas)</option><option value="global">Global</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Sensitive Words (Enter to add)</label>
+    <div class="tag-input-wrap" id="tagInputWrap"></div>
+  </div>
+  <button class="btn-primary" id="saveSettingsBtn" style="justify-content:center">Save Settings</button>
+</aside>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-pulse"></div><p class="loading-stage" id="loadingStage">Analyzing video...</p>
+  <p class="loading-detail" id="loadingDetail"></p>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// State
+// ═══════════════════════════════════════
+const state = {
+  videoFile:null,videoURL:null,
+  frames:[],          // analysis frames (512px, 0.55 quality)
+  hqFrames:[],        // high-quality frames for covers (800px, 0.85 quality)
+  transcript:'',
+  analysisReport:null,
+  results:null,
+  activeCoverIdx:0,
+  activeTitleIdx:0,
+};
+
+// ═══════════════════════════════════════
+// Settings
+// ═══════════════════════════════════════
+const STORAGE_KEY='clipilot_v4_settings';
+const PROVIDERS={
+  anthropic:{name:'Anthropic',keyHint:'sk-ant-...',models:[{id:'claude-sonnet-4-20250514',label:'Claude Sonnet 4'},{id:'claude-opus-4-20250514',label:'Claude Opus 4'},{id:'claude-3-5-sonnet-20241022',label:'Claude 3.5 Sonnet'}]},
+  openai:{name:'OpenAI',keyHint:'sk-proj-...',models:[{id:'gpt-4o',label:'GPT-4o'},{id:'gpt-4o-mini',label:'GPT-4o Mini'}]},
+  qwen:{name:'Qwen',keyHint:'sk-...',models:[{id:'qwen-vl-max',label:'Qwen VL Max'},{id:'qwen-vl-plus',label:'Qwen VL Plus'}]}
+};
+const STYLE_OPTIONS=[
+  {value:'auto',label:'(Auto-detect)'},{value:'vlog',label:'Vlog / Lifestyle'},
+  {value:'food',label:'Food / Cooking'},{value:'dance',label:'Dance / Choreography'},
+  {value:'pet',label:'Pet / Animal'},{value:'comedy',label:'Comedy / Funny'},
+  {value:'tutorial',label:'Tutorial / How-to'},{value:'fashion',label:'Fashion / Outfit'},
+  {value:'travel',label:'Travel / Exploration'},{value:'fitness',label:'Fitness / Workout'},
+];
+const DEFAULTS={provider:'anthropic',apiKey:'',model:'claude-sonnet-4-20250514',transcribeEnabled:false,transcribeKey:'',videoStyle:'auto',customStyle:'',targetMarket:'us',sensitiveWords:[]};
+let settings=(()=>{try{const r=localStorage.getItem(STORAGE_KEY);if(r){const p=JSON.parse(r);if(!p.transcribeEnabled)p.transcribeEnabled=false;if(!p.transcribeKey)p.transcribeKey='';return{...DEFAULTS,...p}}}catch{}return{...DEFAULTS}})();
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(settings));}
+const $=id=>document.getElementById(id);
+
+function escHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+// ═══════════════════════════════════════
+// Settings UI
+// ═══════════════════════════════════════
+function applySettingsUI(){
+  $('settingProvider').value=settings.provider;$('settingApiKey').value=settings.apiKey||'';
+  $('settingTranscribe').checked=!!settings.transcribeEnabled;$('settingTranscribeKey').value=settings.transcribeKey||'';
+  $('settingStyle').value=settings.videoStyle;$('settingCustomStyle').value=settings.customStyle||'';
+  $('settingMarket').value=settings.targetMarket;
+  $('customStyleGroup').style.display=settings.videoStyle==='custom'?'flex':'none';
+  $('transcribeKeyGroup').style.display=settings.transcribeEnabled?'flex':'none';
+  updateProviderUI();renderTagInput();
+}
+function readSettingsUI(){
+  settings.provider=$('settingProvider').value;settings.apiKey=$('settingApiKey').value.trim();
+  settings.model=$('settingModel').value;settings.transcribeEnabled=$('settingTranscribe').checked;
+  settings.transcribeKey=$('settingTranscribeKey').value.trim();
+  settings.videoStyle=$('settingStyle').value;settings.customStyle=$('settingCustomStyle').value.trim();
+  settings.targetMarket=$('settingMarket').value;save();
+}
+function updateProviderUI(){
+  const p=PROVIDERS[settings.provider];$('settingApiKey').placeholder=p.keyHint;$('settingKeyLabel').textContent=p.name+' API Key';
+  const sel=$('settingModel');sel.innerHTML='';
+  p.models.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.label;sel.appendChild(o);});
+  sel.value=p.models.find(m=>m.id===settings.model)?settings.model:p.models[0].id;
+}
+function getEffectiveStyle(){
+  if(settings.videoStyle==='auto'&&state.analysisReport?.detected_style)return state.analysisReport.detected_style;
+  if(settings.videoStyle==='custom'&&settings.customStyle)return settings.customStyle;
+  const f=STYLE_OPTIONS.find(s=>s.value===settings.videoStyle);return f?f.label:'General';
+}
+function getMarketLabel(){const m={us:'United States',jp:'Japan',sea:'Southeast Asia',eu:'Europe',cn:'China overseas',global:'Global'};return m[settings.targetMarket]||settings.targetMarket;}
+function renderTagInput(){
+  const w=$('tagInputWrap');w.innerHTML='';
+  for(const t of settings.sensitiveWords){const p=document.createElement('span');p.className='tag-pill';p.innerHTML=`${escHtml(t)} <button>×</button>`;p.querySelector('button').onclick=()=>{settings.sensitiveWords=settings.sensitiveWords.filter(x=>x!==t);renderTagInput();};w.appendChild(p);}
+  const i=document.createElement('input');i.className='tag-input';i.placeholder=settings.sensitiveWords.length?'':'Type word, Enter';
+  i.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();const v=i.value.trim().replace(/,/g,'');if(v&&!settings.sensitiveWords.includes(v)){settings.sensitiveWords.push(v);renderTagInput();}}if(e.key==='Backspace'&&!i.value&&settings.sensitiveWords.length){settings.sensitiveWords.pop();renderTagInput();}};
+  w.appendChild(i);
+}
+let toastTimer;function showToast(msg){clearTimeout(toastTimer);$('toast').textContent=msg;$('toast').classList.add('show');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),2200);}
+function showLoading(stage,detail){$('loadingStage').textContent=stage;$('loadingDetail').textContent=detail||'';$('loadingOverlay').classList.add('active');}
+function updateLoading(stage,detail){if(stage)$('loadingStage').textContent=stage;if(detail)$('loadingDetail').textContent=detail;}
+function hideLoading(){$('loadingOverlay').classList.remove('active');}
+
+// ═══════════════════════════════════════
+// Video Upload
+// ═══════════════════════════════════════
+function handleVideoFile(file){
+  if(!file)return;if(!file.type.match(/video\/(mp4|quicktime)/)){showToast('MP4 or MOV only');return;}
+  if(file.size>50*1024*1024){showToast('Must be under 50MB');return;}
+  if(state.videoURL)URL.revokeObjectURL(state.videoURL);
+  state.videoFile=file;state.videoURL=URL.createObjectURL(file);
+  state.frames=[];state.hqFrames=[];state.transcript='';state.analysisReport=null;state.results=null;state.activeCoverIdx=0;state.activeTitleIdx=0;
+  $('videoPlayer').src=state.videoURL;$('videoPlayerWrap').style.display='flex';$('uploadZone').style.display='none';
+  $('resultsWrapper').style.display='none';$('emptyState').style.display='flex';$('previewPanel').style.display='none';
+  $('analyzeBtn').disabled=false;
+  $('videoPlayer').onloadedmetadata=()=>{const d=$('videoPlayer').duration;$('videoMeta').textContent=`${Math.floor(d/60)}:${String(Math.floor(d%60)).padStart(2,'0')} · ${(file.size/1024/1024).toFixed(1)} MB`;$('frameEstimate').textContent=`~${Math.max(3,Math.floor(d))} frames`;};
+}
+$('uploadZone').onclick=()=>$('fileInput').click();$('fileInput').onchange=()=>{if($('fileInput').files[0])handleVideoFile($('fileInput').files[0]);};
+$('uploadZone').ondragover=e=>{e.preventDefault();$('uploadZone').classList.add('drag-over');};
+$('uploadZone').ondragleave=()=>$('uploadZone').classList.remove('drag-over');
+$('uploadZone').ondrop=e=>{e.preventDefault();$('uploadZone').classList.remove('drag-over');if(e.dataTransfer.files[0])handleVideoFile(e.dataTransfer.files[0]);};
+document.body.ondragover=e=>e.preventDefault();
+document.body.ondrop=e=>{e.preventDefault();if(!state.videoFile&&e.dataTransfer.files[0])handleVideoFile(e.dataTransfer.files[0]);};
+$('reuploadBtn').onclick=()=>{$('videoPlayerWrap').style.display='none';$('uploadZone').style.display='flex';$('resultsWrapper').style.display='none';$('emptyState').style.display='flex';$('previewPanel').style.display='none';$('analyzeBtn').disabled=true;$('frameEstimate').textContent='';if(state.videoURL)URL.revokeObjectURL(state.videoURL);state.videoFile=null;state.videoURL=null;state.frames=[];state.hqFrames=[];$('fileInput').value='';};
+
+// ═══════════════════════════════════════
+// Frame Extraction (two passes)
+// ═══════════════════════════════════════
+async function extractFrames(file){
+  const video=document.createElement('video');video.src=URL.createObjectURL(file);video.preload='auto';video.muted=true;
+  await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=reject;});
+  const dur=video.duration,count=Math.max(3,Math.min(30,Math.floor(dur)));
+  const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+  const frames=[],hqFrames=[];
+
+  for(let i=0;i<count;i++){
+    const t=Math.min(i+0.5,dur-0.1);video.currentTime=t;await new Promise(r=>{video.onseeked=r;});
+    // Analysis frame (512px, compressed — for API)
+    const aRatio=512/video.videoWidth;canvas.width=512;canvas.height=Math.round(video.videoHeight*aRatio);
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    frames.push({index:i,time:t,dataUrl:canvas.toDataURL('image/jpeg',0.6)});
+    // HQ frame (use original video resolution, high quality — for cover rendering only)
+    canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    hqFrames.push({index:i,time:t,dataUrl:canvas.toDataURL('image/jpeg',0.92)});
+  }
+  URL.revokeObjectURL(video.src);
+  return {frames,hqFrames};
+}
+
+// ═══════════════════════════════════════
+// Audio + Transcription
+// ═══════════════════════════════════════
+function audioBufferToWav(buffer){
+  const nc=buffer.numberOfChannels,sr=buffer.sampleRate,length=buffer.length*nc*2+44,ab=new ArrayBuffer(length),v=new DataView(ab);
+  const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
+  w(0,'RIFF');v.setUint32(4,length-8,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);
+  v.setUint16(22,nc,true);v.setUint32(24,sr,true);v.setUint32(28,sr*nc*2,true);v.setUint16(32,nc*2,true);v.setUint16(34,16,true);
+  w(36,'data');v.setUint32(40,length-44,true);let o=44;
+  for(let i=0;i<buffer.length;i++){for(let ch=0;ch<nc;ch++){const s=Math.max(-1,Math.min(1,buffer.getChannelData(ch)[i]));v.setInt16(o,s<0?s*0x8000:s*0x7FFF,true);o+=2;}}
+  return new Blob([ab],{type:'audio/wav'});
+}
+async function extractAudio(file){const ac=new AudioContext();const ab=await file.arrayBuffer();const buf=await ac.decodeAudioData(ab);ac.close();return audioBufferToWav(buf);}
+async function transcribeAudio(file){
+  const key=settings.transcribeKey||(settings.provider==='openai'?settings.apiKey:'');if(!key)throw new Error('OpenAI API key required');
+  const wavBlob=await extractAudio(file);const fd=new FormData();fd.append('file',wavBlob,'audio.wav');fd.append('model','whisper-1');fd.append('response_format','text');
+  const resp=await fetch('https://api.openai.com/v1/audio/transcriptions',{method:'POST',headers:{'Authorization':`Bearer ${key}`},body:fd});
+  if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error?.message||`Whisper: ${resp.status}`);}return (await resp.text()).trim();
+}
+
+// ═══════════════════════════════════════
+// API
+// ═══════════════════════════════════════
+function stripBase64(dataUrl){return dataUrl.split(',')[1];}
+function extractJSON(text,label){
+  console.log(`[Clipilot] Raw AI response (${label||'?'}):`, text.substring(0,500));
+  // Try markdown code block
+  let m=text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if(m){try{return JSON.parse(m[1].trim())}catch(e){console.log('[Clipilot] Markdown block parse failed:',e.message)}}
+  // Try to find balanced braces
+  let depth=0,start=-1;
+  for(let i=0;i<text.length;i++){
+    if(text[i]==='{'){if(depth===0)start=i;depth++}
+    else if(text[i]==='}'){depth--;if(depth===0&&start>=0){const candidate=text.substring(start,i+1);try{return JSON.parse(candidate)}catch{}}}
+  }
+  // Last resort: find any {...}
+  m=text.match(/\{[\s\S]*\}/);
+  if(m)try{return JSON.parse(m[0])}catch(e){console.log('[Clipilot] Final parse failed:',e.message)}
+  // Show what we got in the error AND on screen
+  const preview=text.substring(0,300);
+  console.error('[Clipilot] Failed to parse. Full response:', text);
+  showToast('AI response was not valid JSON — see below');
+  throw new Error('AI response not valid JSON.\n\nFirst 300 chars:\n' + preview);
+}
+function sampleFrames(frames,count){if(frames.length<=count)return frames;const step=(frames.length-1)/(count-1),result=[];for(let i=0;i<count;i++)result.push(frames[Math.round(i*step)]);return result;}
+
+async function apiCall(systemPrompt,messages,maxTokens=1500){
+  const key=(settings.apiKey||'').replace(/[\s﻿\xA0]+/g,'').trim();if(!key)throw new Error('No API key');
+  switch(settings.provider){case'openai':return openaiCall(systemPrompt,messages,maxTokens,key);case'qwen':return qwenCall(systemPrompt,messages,maxTokens,key);default:return anthropicCall(systemPrompt,messages,maxTokens,key);}
+}
+async function anthropicCall(sp,msgs,mt,key){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:settings.model||'claude-sonnet-4-20250514',max_tokens:mt,system:sp,messages:msgs})});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`Anthropic: ${r.status}`);}const d=await r.json();return extractJSON(d.content[0].text,'anthropic');
+}
+async function openaiCall(sp,msgs,mt,key){
+  const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:settings.model||'gpt-4o',max_tokens:mt,response_format:{type:'json_object'},messages:[{role:'system',content:sp},...msgs]})});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`OpenAI: ${r.status}`);}const d=await r.json();return extractJSON(d.choices[0].message.content,'openai');
+}
+async function qwenCall(sp,msgs,mt,key){
+  const r=await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:settings.model||'qwen-vl-max',max_tokens:mt,response_format:{type:'json_object'},messages:[{role:'system',content:sp},...msgs]})});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||e.error?.message||`Qwen: ${r.status}`);}const d=await r.json();return extractJSON(d.choices[0].message.content,'qwen');
+}
+
+// ═══════════════════════════════════════
+// TikTok Guide
+// ═══════════════════════════════════════
+const TIKTOK_GUIDE=`
+TikTok content strategy notes (use as creative reference, not output format):
+- Covers: sharp frames showing peak emotion, clean subject, good contrast. Avoid blur/transitions.
+- Titles: short (under 40 chars), patterns like POV, When, The moment, number contrasts. Max 1 emoji.
+- Descriptions: hook first, 2-3 short lines, engagement CTA last. ~1 emoji per line.
+- Hashtags: 3-tier — 2-3 broad (#fyp), 4-5 category (#foodtok), 4-5 niche. 12-15 total.`;
+
+// ═══════════════════════════════════════
+// Phase 1: Video Understanding
+// ═══════════════════════════════════════
+function buildAnalysisPrompt(transcript){
+  return`IMPORTANT: Your response must be ONLY valid JSON. No markdown, no explanation, no other text.
+
+You analyze TikTok video content. ${TIKTOK_GUIDE}
+${transcript?`AUDIO TRANSCRIPT: "${transcript}"\n`:'No transcript.\n'}
+Return this exact JSON structure (fill in the values):
+{
+  "detected_style": "one of: Vlog, Food, Dance, Pet, Comedy, Tutorial, Fashion, Travel, Fitness, Lifestyle, General",
+  "mood": "2-3 words",
+  "subjects": "concise description of what is in the video",
+  "key_moments": "2-4 key moments with timestamps in seconds",
+  "suggested_covers": [0, 0, 0],
+  "transcript_summary": "${transcript?'one sentence summary of the transcript':'None'}"
+}
+Your response must start with { and end with }. No other text.`;
+}
+
+async function runVideoUnderstanding(frames,transcript){
+  const toSend=sampleFrames(frames,Math.min(frames.length,16));
+  let messages;
+  if(settings.provider==='anthropic'){
+    const content=toSend.map(f=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:stripBase64(f.dataUrl)}}));
+    content.push({type:'text',text:toSend.map(f=>`[Frame ${f.index} ${f.time.toFixed(1)}s]`).join('\n')});
+    messages=[{role:'user',content}];
+  }else{
+    const parts=toSend.map(f=>({type:'image_url',image_url:{url:f.dataUrl,detail:'low'}}));
+    parts.push({type:'text',text:toSend.map(f=>`[Frame ${f.index} ${f.time.toFixed(1)}s]`).join('\n')});
+    messages=[{role:'user',content:parts}];
+  }
+  return apiCall(buildAnalysisPrompt(transcript),messages,800);
+}
+
+// ═══════════════════════════════════════
+// Phase 2: Skills
+// ═══════════════════════════════════════
+function buildSkillCtx(r){return`STYLE:${r.detected_style||'?'} MOOD:${r.mood||'?'} SUBJ:${r.subjects||'?'} MOMENTS:${r.key_moments||'?'} TRANSCRIPT:${r.transcript_summary||'None'}`;}
+
+const SKILL_PROMPTS={
+  cover:(ctx)=>`IMPORTANT: Only return valid JSON, no other text. Your response must start with { and end with }.
+Pick the 3 best cover frame indices from the video. ${TIKTOK_GUIDE}\n${ctx}\nReturn EXACTLY: {"cover_frames":[idx1,idx2,idx3]}. Pick sharp, emotive, scroll-stopping frames.`,
+
+  title:(ctx,style,market,sens)=>{const sl=sens.length?sens.join(', '):'(none)';return`IMPORTANT: Only return valid JSON, no other text. Your response must start with { and end with }.
+Write TikTok titles for ${market}. ${TIKTOK_GUIDE}\n${ctx}\nSTYLE:${style} AVOID:${sl}
+Generate 3-4 titles (under 40 chars, max 1 emoji). Mark exactly 1 as recommended.
+Return EXACTLY: {"titles":[{"text":"...","recommended":false},...]}`;},
+
+  description:(ctx,style,market,sens)=>{const sl=sens.length?sens.join(', '):'(none)';return`IMPORTANT: Only return valid JSON, no other text. Your response must start with { and end with }.
+Write 1 TikTok description (TEXT ONLY, no hashtags — hashtags are handled separately). ${TIKTOK_GUIDE}\n${ctx}\nSTYLE:${style} AVOID:${sl}
+Hook first, 2-3 short lines, CTA last. Each sentence on own line. Under 400 chars. NO hashtags allowed in the description.
+Return EXACTLY: {"description":"..."}`;},
+
+  hashtags:(ctx,style,market)=>`IMPORTANT: Only return valid JSON, no other text. Your response must start with { and end with }.
+Generate TikTok hashtags for ${market}. ${TIKTOK_GUIDE}\n${ctx}
+12-15 tags in 3 tiers. Mark 6-8 as recommended.
+Return EXACTLY: {"hashtags":[{"tag":"#tag","recommended":false},...]}`
+};
+
+async function runSkill(name,report,frames){
+  const style=getEffectiveStyle(),market=getMarketLabel(),sens=settings.sensitiveWords;
+  const sp=SKILL_PROMPTS[name](buildSkillCtx(report),style,market,sens);
+  const toSend=name==='cover'?sampleFrames(frames,Math.min(8,frames.length)):sampleFrames(frames,3);
+  let messages;
+  if(settings.provider==='anthropic'){
+    const content=toSend.map(f=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:stripBase64(f.dataUrl)}}));
+    content.push({type:'text',text:`Frames: [${toSend.map(f=>f.index).join(',')}]`});messages=[{role:'user',content}];
+  }else{
+    const parts=toSend.map(f=>({type:'image_url',image_url:{url:f.dataUrl,detail:'low'}}));
+    parts.push({type:'text',text:`Frames: [${toSend.map(f=>f.index).join(',')}]`});messages=[{role:'user',content:parts}];
+  }
+  return apiCall(sp,messages,name==='cover'?300:600);
+}
+async function runAllSkills(frames,report){const[coverR,titleR,descR,tagR]=await Promise.all([runSkill('cover',report,frames),runSkill('title',report,[]),runSkill('description',report,[]),runSkill('hashtags',report,[])]);return{cover_frames:coverR.cover_frames||report.suggested_covers||[0,0,0],titles:titleR.titles||[{text:'Untitled',recommended:true}],description:descR.description||'',hashtags:tagR.hashtags||[]};}
+
+// ═══════════════════════════════════════
+// Cover Canvas Drawing
+// ═══════════════════════════════════════
+async function drawCover(canvas,frameDataUrl,title){
+  return new Promise(resolve=>{
+    const img=new Image();img.onload=()=>{
+      const w=canvas.width||img.naturalWidth;
+      const ratio=w/img.naturalWidth,h=Math.round(img.naturalHeight*ratio);
+      canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
+      // Gradient
+      const gY=h*0.65,g=ctx.createLinearGradient(0,gY,0,h);
+      g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(0.5,'rgba(0,0,0,0.5)');g.addColorStop(1,'rgba(0,0,0,0.78)');
+      ctx.fillStyle=g;ctx.fillRect(0,gY,w,h-gY);
+      // Title
+      if(title){const fs=Math.max(14,Math.round(w/15));ctx.font=`700 ${fs}px ${getComputedStyle(document.body).fontFamily}`;ctx.fillStyle='#FFF';ctx.textAlign='left';ctx.shadowColor='rgba(0,0,0,0.85)';ctx.shadowBlur=8;ctx.shadowOffsetX=0;ctx.shadowOffsetY=2;
+      const words=title.split(' '),lines=[],mw=w-28;let line='';for(const wd of words){const t=line?line+' '+wd:wd;if(ctx.measureText(t).width>mw&&line){lines.push(line);line=wd}else{line=t}}if(line)lines.push(line);
+      const lh=fs*1.3,sy=h*0.78;lines.forEach((l,i)=>ctx.fillText(l,14,sy+i*lh));}
+      ctx.shadowBlur=0;resolve();
+    };img.src=frameDataUrl;
+  });
+}
+
+// ═══════════════════════════════════════
+// Render & UI Updates
+// ═══════════════════════════════════════
+async function renderResults(analysisReport,skillResults,frames,hqFrames){
+  state.analysisReport=analysisReport;state.results=skillResults;state.activeCoverIdx=0;state.activeTitleIdx=0;
+  $('emptyState').style.display='none';$('resultsWrapper').style.display='block';$('previewPanel').style.display='block';
+
+  // Style tag
+  const detected=analysisReport.detected_style||'General';
+  const sel=$('styleOverride');sel.innerHTML='';
+  STYLE_OPTIONS.forEach(s=>{const o=document.createElement('option');o.value=s.value;if(s.value==='auto'){o.textContent=detected+' (AI detected)';o.selected=true}else o.textContent=s.label;const dL=detected.toLowerCase();if(s.value!=='auto'&&s.label.toLowerCase().includes(dL.substring(0,4)))o.selected=true;sel.appendChild(o);});
+  $('styleTag').style.display='inline-flex';
+
+  // Cover candidates
+  const coverIdxs=skillResults.cover_frames||analysisReport.suggested_covers||[0,0,0];
+  const uniq=[...new Set(coverIdxs)].slice(0,3);while(uniq.length<3)uniq.push(uniq[0]||0);
+  const title=skillResults.titles?.find(t=>t.recommended)?.text||skillResults.titles?.[0]?.text||'';
+  await renderCoverSection(uniq,hqFrames,title,0);
+
+  // Titles
+  state.activeTitleIdx=skillResults.titles?.findIndex(t=>t.recommended)??0;if(state.activeTitleIdx<0)state.activeTitleIdx=0;
+  renderTitleOptions(skillResults.titles||[]);
+
+  // Description
+  $('descriptionBox').textContent=skillResults.description||'';
+
+  // Hashtags
+  renderHashtags(skillResults.hashtags||[]);
+
+  // Phone preview
+  await updatePhonePreview();
+}
+
+// ── Cover Section: 1 large + 3 small thumbnails ──
+async function renderCoverSection(indices,hqFrames,title,activeIdx){
+  const layout=$('coverLayout');layout.innerHTML='';
+  // Use HQ frames for rendering
+  const frames=hqFrames.length?hqFrames:state.frames;
+  const validIndices=[...new Set(indices)].slice(0,3);while(validIndices.length<3)validIndices.push(validIndices[0]||0);
+
+  // Large main cover
+  const mainWrap=document.createElement('div');mainWrap.className='cover-main-wrap';
+  const mainDiv=document.createElement('div');mainDiv.className='cover-main';
+  const mainCanvas=document.createElement('canvas');
+  mainDiv.appendChild(mainCanvas);mainWrap.appendChild(mainDiv);
+
+  // Thumbs row
+  const thumbsRow=document.createElement('div');thumbsRow.className='cover-thumbs';
+
+  for(let i=0;i<3;i++){
+    const idx=validIndices[i],frame=frames[Math.min(idx,frames.length-1)]||frames[0];
+    const twrap=document.createElement('div');twrap.style.position='relative';
+    const tdiv=document.createElement('div');tdiv.className='cover-thumb'+(i===activeIdx?' selected':'');
+    tdiv.dataset.idx=i;
+    const tcanvas=document.createElement('canvas');
+    const label=document.createElement('div');label.className='cover-thumb-label';label.textContent=i+1;
+    tdiv.appendChild(tcanvas);twrap.appendChild(tdiv);twrap.appendChild(label);
+
+    tdiv.onclick=async()=>{
+      state.activeCoverIdx=i;
+      thumbsRow.querySelectorAll('.cover-thumb').forEach(el=>el.classList.remove('selected'));
+      tdiv.classList.add('selected');
+      // Update main
+      const selIdx=validIndices[i],selFrame=frames[Math.min(selIdx,frames.length-1)]||frames[0];
+      await drawCover(mainCanvas,selFrame.dataUrl,title);
+      await updatePhonePreview();
+    };
+    thumbsRow.appendChild(twrap);
+
+    // Draw thumb
+    await drawCoverThumb(tcanvas,frame.dataUrl);
+    // Draw main if this is the active one
+    if(i===activeIdx)await drawCover(mainCanvas,frame.dataUrl,title);
+  }
+
+  // Download button
+  const dlWrap=document.createElement('div');dlWrap.className='cover-download-btn';dlWrap.style.cssText='margin-top:8px;text-align:center';
+  const dlBtn=document.createElement('button');dlBtn.className='cover-download-btn';dlBtn.textContent='⬇ Download Cover';dlBtn.style.cursor='pointer';
+  dlBtn.onclick=()=>{
+    const activeThumb=thumbsRow.querySelector('.cover-thumb.selected');
+    const aIdx=activeThumb?parseInt(activeThumb.dataset.idx):0;
+    const mainCanvas2=document.createElement('canvas');mainCanvas2.width=mainCanvas.width;mainCanvas2.height=mainCanvas.height;
+    mainCanvas2.getContext('2d').drawImage(mainCanvas,0,0);
+    mainCanvas2.toBlob(b=>{const a=document.createElement('a');a.download='clipilot_cover.png';a.href=URL.createObjectURL(b);a.click();showToast('Cover downloaded!');});
+  };
+  dlWrap.appendChild(dlBtn);
+
+  layout.appendChild(mainWrap);layout.appendChild(thumbsRow);layout.appendChild(dlWrap);
+}
+
+async function drawCoverThumb(canvas,frameDataUrl){
+  return new Promise(resolve=>{const img=new Image();img.onload=()=>{
+    const w=68,h=Math.round(68*img.naturalHeight/img.naturalWidth);canvas.width=w;canvas.height=h;
+    canvas.getContext('2d').drawImage(img,0,0,w,h);resolve();
+  };img.src=frameDataUrl;});
+}
+
+// ── Titles ──
+function renderTitleOptions(titles){
+  const container=$('titleOptions');container.innerHTML='';
+  titles.forEach((t,i)=>{
+    const opt=document.createElement('div');opt.className='title-option'+(i===state.activeTitleIdx?' active':'');
+    opt.innerHTML=`<div class="radio"></div><span class="text">${escHtml(t.text)}</span>${t.recommended?'<span class="star">⭐</span>':''}`;
+    opt.onclick=async()=>{
+      state.activeTitleIdx=i;
+      container.querySelectorAll('.title-option').forEach(el=>el.classList.remove('active'));
+      opt.classList.add('active');
+      // Re-render cover with new title
+      await refreshCoverTitle(t.text);
+    };
+    container.appendChild(opt);
+  });
+}
+
+async function refreshCoverTitle(title){
+  const uniq=[...new Set(state.results?.cover_frames||state.analysisReport?.suggested_covers||[0,0,0])].slice(0,3);while(uniq.length<3)uniq.push(uniq[0]||0);
+  const frames=state.hqFrames.length?state.hqFrames:state.frames;
+  // Update main cover
+  const idx=uniq[state.activeCoverIdx]||uniq[0];
+  const frame=frames[Math.min(idx,frames.length-1)]||frames[0];
+  const mainCanvas=$('coverLayout').querySelector('.cover-main canvas');
+  if(mainCanvas)await drawCover(mainCanvas,frame.dataUrl,title);
+  await updatePhonePreview();
+}
+
+// ── Hashtags ──
+function renderHashtags(hashtags){
+  const area=$('hashtagArea');area.innerHTML='';if(!hashtags.length)return;
+  const rec=hashtags.filter(h=>h.recommended),oth=hashtags.filter(h=>!h.recommended);
+  if(rec.length){const l=document.createElement('div');l.className='tier-label';l.textContent='⭐ Recommended';area.appendChild(l);const g=document.createElement('div');g.className='hashtag-grid';rec.forEach(h=>g.appendChild(createHPill(h,true)));area.appendChild(g);}
+  if(oth.length){const l=document.createElement('div');l.className='tier-label';l.textContent='More options';l.style.marginTop='6px';area.appendChild(l);const g=document.createElement('div');g.className='hashtag-grid';oth.forEach(h=>g.appendChild(createHPill(h,false)));area.appendChild(g);}
+}
+function createHPill(h,sel){const t=h.tag||h,p=document.createElement('div');p.className='hashtag-pill'+(sel?' selected':'');p.innerHTML=`<span class="check">${sel?'✓':'○'}</span>${escHtml(t.startsWith('#')?t:'#'+t)}`;p.onclick=()=>{p.classList.toggle('selected');updateAllChecks();updatePhonePreview();};return p;}
+function updateAllChecks(){$('hashtagArea').querySelectorAll('.hashtag-pill').forEach(p=>{const c=p.querySelector('.check');if(c)c.textContent=p.classList.contains('selected')?'✓':'○';});}
+
+// ── Phone Preview ──
+async function updatePhonePreview(){
+  if(!state.results)return;
+  const uniq=[...new Set(state.results.cover_frames||state.analysisReport?.suggested_covers||[0,0,0])].slice(0,3);while(uniq.length<3)uniq.push(uniq[0]||0);
+  const idx=uniq[Math.min(state.activeCoverIdx,uniq.length-1)]||uniq[0];
+  const frames=state.hqFrames.length?state.hqFrames:state.frames;
+  const frame=frames[Math.min(idx,frames.length-1)]||frames[0];
+  const title=state.results.titles?.[state.activeTitleIdx]?.text||state.results.titles?.[0]?.text||'';
+
+  const pc=$('phoneCoverCanvas');pc.width=214;pc.height=380;
+  await drawCover(pc,frame.dataUrl,title);
+
+  $('phoneDesc').textContent=$('descriptionBox').textContent||'';
+  const allPills=$('hashtagArea').querySelectorAll('.hashtag-pill');
+  const selTags=Array.from(allPills).filter(p=>p.classList.contains('selected')).map(p=>p.textContent.replace(/[✓○]/g,'').trim());
+  const fallbackTags=Array.from(allPills).filter(p=>{const c=p.querySelector('.check');return p.classList.contains('selected')||c?.textContent==='✓'}).map(p=>p.textContent.replace(/[✓○]/g,'').trim());
+  const tags=selTags.length?selTags:fallbackTags;
+  $('phoneTags').innerHTML=tags.map(t=>`<span class="phone-tag">${escHtml(t)}</span>`).join('');
+}
+
+// ═══════════════════════════════════════
+// Regenerate
+// ═══════════════════════════════════════
+async function regenerateSkill(name){
+  if(!state.frames.length||!state.analysisReport)return;readSettingsUI();
+  const btn=document.querySelector(`.regenerate-btn[data-skill="${name}"]`);if(btn)btn.classList.add('spinning');
+  try{
+    const r=await runSkill(name,state.analysisReport,state.frames);
+    if(name==='cover'){state.results.cover_frames=r.cover_frames||state.results.cover_frames;state.activeCoverIdx=0;const uniq=[...new Set(state.results.cover_frames)].slice(0,3);while(uniq.length<3)uniq.push(uniq[0]||0);const title=state.results.titles?.[state.activeTitleIdx]?.text||'';await renderCoverSection(uniq,state.hqFrames.length?state.hqFrames:state.frames,title,0);await updatePhonePreview();showToast('Covers regenerated!');}
+    else if(name==='title'){state.results.titles=r.titles||state.results.titles;state.activeTitleIdx=state.results.titles?.findIndex(t=>t.recommended)??0;if(state.activeTitleIdx<0)state.activeTitleIdx=0;renderTitleOptions(state.results.titles);const t=state.results.titles[state.activeTitleIdx]?.text||'';await refreshCoverTitle(t);showToast('Titles regenerated!');}
+    else if(name==='description'){$('descriptionBox').textContent=r.description||'';state.results.description=r.description;await updatePhonePreview();showToast('Description regenerated!');}
+    else if(name==='hashtags'){state.results.hashtags=r.hashtags||state.results.hashtags;renderHashtags(state.results.hashtags);await updatePhonePreview();showToast('Hashtags regenerated!');}
+  }catch(e){console.error(e);const msg=(e.message||String(e));const short=msg.length>150?msg.substring(0,150)+'...':msg;showToast('Error: '+short.replace(/\n/g,' / '));}
+  finally{if(btn)btn.classList.remove('spinning');}
+}
+
+// ═══════════════════════════════════════
+// Copy
+// ═══════════════════════════════════════
+async function copyAll(){
+  const title=state.results?.titles?.[state.activeTitleIdx]?.text||'';
+  // Strip hashtags that AI might have snuck into the description
+  let desc=($('descriptionBox').textContent||'').trim();
+  desc=desc.replace(/(^|\n)\s*(#\S+\s*)+$/gm,'').trim();
+  const selected=Array.from($('hashtagArea').querySelectorAll('.hashtag-pill.selected')).map(p=>p.textContent.replace(/[✓○]/g,'').trim());
+  const fallback=Array.from($('hashtagArea').querySelectorAll('.hashtag-pill')).filter(p=>p.classList.contains('selected')||p.querySelector('.check')?.textContent==='✓').map(p=>p.textContent.replace(/[✓○]/g,'').trim());
+  const tags=(selected.length?selected:fallback).join(' ');
+  const text=`${title}\n\n${desc}\n\n${tags}`;
+  try{await navigator.clipboard.writeText(text);showToast('Copied! 📋');}
+  catch{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('Copied! 📋');}
+}
+
+// ═══════════════════════════════════════
+// Main Flow
+// ═══════════════════════════════════════
+async function runAnalysis(){
+  if(!state.videoFile)return;readSettingsUI();
+  const key=(settings.apiKey||'').replace(/[\s﻿\xA0]+/g,'').trim();if(!key){openDrawer();showToast('Set your API key first');return;}
+  $('analyzeBtn').disabled=true;showLoading('Extracting frames...','');
+  try{
+    const{frames,hqFrames}=await extractFrames(state.videoFile);state.frames=frames;state.hqFrames=hqFrames;
+    updateLoading(null,frames.length+' frames · high quality covers ready');
+
+    let transcript='';
+    if(settings.transcribeEnabled){try{transcript=await transcribeAudio(state.videoFile);state.transcript=transcript;updateLoading('Understanding video...',transcript.substring(0,50)+'...');}catch(e){console.warn('Transcription failed:',e.message);updateLoading('Understanding video...','');}}
+    else{updateLoading('Understanding video...','');}
+
+    const report=await runVideoUnderstanding(frames,transcript);state.analysisReport=report;
+    updateLoading('Generating content...',`${report.detected_style||'?'} · ${report.mood||'?'}`);
+
+    const results=await runAllSkills(frames,report);
+    hideLoading();await renderResults(report,results,frames,hqFrames);showToast('Analysis complete! ✨');
+  }catch(e){hideLoading();console.error(e);
+    const msg=(e.message||String(e));const short=msg.length>200?msg.substring(0,200)+'...':msg;
+    showToast('Error: '+short.replace(/\n/g,' / '));
+  }
+  finally{$('analyzeBtn').disabled=false;}
+}
+
+// ═══════════════════════════════════════
+// Style Override
+// ═══════════════════════════════════════
+$('styleOverride').onchange=async()=>{const v=$('styleOverride').value;settings.videoStyle=v==='auto'?'auto':v;save();
+  if(state.analysisReport&&state.frames.length){try{const[titleR,descR,tagR]=await Promise.all([runSkill('title',state.analysisReport,[]),runSkill('description',state.analysisReport,[]),runSkill('hashtags',state.analysisReport,[])]);
+    state.results.titles=titleR.titles||state.results.titles;state.results.description=descR.description||state.results.description;state.results.hashtags=tagR.hashtags||state.results.hashtags;
+    state.activeTitleIdx=state.results.titles?.findIndex(t=>t.recommended)??0;if(state.activeTitleIdx<0)state.activeTitleIdx=0;
+    renderTitleOptions(state.results.titles);$('descriptionBox').textContent=state.results.description;renderHashtags(state.results.hashtags);
+    const t=state.results.titles[state.activeTitleIdx]?.text||'';await refreshCoverTitle(t);showToast('Style updated');
+  }catch(e){showToast('Style update failed');}}
+};
+
+// ═══════════════════════════════════════
+// Drawer & Bindings
+// ═══════════════════════════════════════
+function openDrawer(){$('settingsDrawer').classList.add('open');$('drawerOverlay').classList.add('open');applySettingsUI();}
+function closeDrawer(){readSettingsUI();$('settingsDrawer').classList.remove('open');$('drawerOverlay').classList.remove('open');}
+$('settingsBtn').onclick=openDrawer;$('drawerClose').onclick=closeDrawer;$('drawerOverlay').onclick=closeDrawer;$('saveSettingsBtn').onclick=closeDrawer;
+$('settingStyle').onchange=()=>{$('customStyleGroup').style.display=$('settingStyle').value==='custom'?'flex':'none';};
+$('settingProvider').onchange=()=>{settings.provider=$('settingProvider').value;updateProviderUI();};
+$('settingTranscribe').onchange=()=>{$('transcribeKeyGroup').style.display=$('settingTranscribe').checked?'flex':'none';};
+$('analyzeBtn').onclick=runAnalysis;$('copyAllBtn').onclick=copyAll;
+document.querySelectorAll('.regenerate-btn').forEach(b=>b.onclick=()=>regenerateSkill(b.dataset.skill));
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'&&state.videoFile&&!$('analyzeBtn').disabled){e.preventDefault();runAnalysis();}});
+applySettingsUI();
+</script>
+</body>
+</html>
