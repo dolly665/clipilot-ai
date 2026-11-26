@@ -1,0 +1,919 @@
+<title>清清 · 时予清工作台</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: left rail nav + working canvas; phone = top scroll nav, single column. Region colors: 国内 amber, 海外 indigo; jade = action. */
+:root{
+  --bg:#F3F6F5; --surface:#FFFFFF; --surface-2:#EAF0EE; --fg:#16201D; --muted:#5A6964; --line:#D6DFDB;
+  --accent:#1D6B60; --accent-fg:#FFFFFF; --accent-soft:#D8ECE7;
+  --cn:#A85A0C; --cn-soft:#FAEBD7; --os:#3946A0; --os-soft:#E1E5F8;
+  --ok:#2D7A47; --ok-soft:#DDF0E3; --warn:#A86C12; --warn-soft:#FBF0D9; --bad:#B42318; --bad-soft:#FBE3E0;
+  --shadow:0 1px 2px rgba(20,40,35,.06),0 4px 16px rgba(20,40,35,.06);
+  --f-display:"Noto Serif SC","Songti SC","STSong",serif;
+  --f-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1412; --surface:#151D1A; --surface-2:#1C2622; --fg:#E3ECE8; --muted:#92A39D; --line:#293531;
+  --accent:#5BC1AE; --accent-fg:#0B1714; --accent-soft:#17332D;
+  --cn:#EFA650; --cn-soft:#382813; --os:#9EAAF4; --os-soft:#222949;
+  --ok:#62C98C; --ok-soft:#163222; --warn:#E5B45C; --warn-soft:#352914; --bad:#F2796C; --bad-soft:#3A1915;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1412; --surface:#151D1A; --surface-2:#1C2622; --fg:#E3ECE8; --muted:#92A39D; --line:#293531;
+  --accent:#5BC1AE; --accent-fg:#0B1714; --accent-soft:#17332D;
+  --cn:#EFA650; --cn-soft:#382813; --os:#9EAAF4; --os-soft:#222949;
+  --ok:#62C98C; --ok-soft:#163222; --warn:#E5B45C; --warn-soft:#352914; --bad:#F2796C; --bad-soft:#3A1915;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.6}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{text-wrap:balance;margin:0}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.app{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh}
+.rail{background:var(--surface);border-right:1px solid var(--line);padding:20px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:20px}
+.brand{display:flex;align-items:baseline;gap:8px;padding:0 10px}
+.brand b{font-family:var(--f-display);font-size:24px;letter-spacing:.04em}
+.brand span{color:var(--muted);font-size:12px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;color:var(--fg);text-decoration:none}
+.nav a:hover{background:var(--surface-2)}
+.nav a.on{background:var(--accent-soft);color:var(--accent);font-weight:500}
+.nav .count{font-family:var(--f-mono);font-size:12px;background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:0 7px}
+.rail-foot{margin-top:auto;font-size:12px;color:var(--muted);padding:0 10px;line-height:1.5}
+
+main{padding-block:28px 64px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));min-width:0;max-width:1240px}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+.head h1{font-family:var(--f-display);font-size:26px;letter-spacing:.02em}
+.head p{margin:4px 0 0;color:var(--muted)}
+.eyebrow{font-size:12px;letter-spacing:.08em;color:var(--muted)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.panel h2{font-size:15px;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.panel h2 small{font-weight:400;color:var(--muted);font-size:12px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g-side{grid-template-columns:minmax(0,1fr) 340px}
+.g-detail{grid-template-columns:320px minmax(0,1fr)}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;text-decoration:none;color:var(--fg);padding:7px 14px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:500}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.sm{padding:4px 10px;font-size:13px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--accent)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;border-radius:999px;padding:1px 9px;border:1px solid var(--line);color:var(--muted);white-space:nowrap;line-height:1.7}
+.chip.cn{background:var(--cn-soft);color:var(--cn);border-color:transparent}
+.chip.os{background:var(--os-soft);color:var(--os);border-color:transparent}
+.chip.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.chip.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.chip.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.chip.acc{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--line);flex:none}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}.dot.acc{background:var(--accent)}.dot.idle{background:transparent;border:1.5px solid var(--muted)}
+
+/* flow strip */
+.flow{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:0;overflow-x:auto}
+.step{padding:12px 10px 10px;border-top:3px solid var(--line);position:relative;min-width:100px}
+.step.you{border-top-color:var(--cn)}
+.step.auto{border-top-color:var(--accent)}
+.step b{display:block;font-size:14px}
+.step span{display:block;font-size:12px;color:var(--muted);line-height:1.45;margin-top:2px}
+.step .who{font-size:11px;letter-spacing:.06em;margin-bottom:4px;color:var(--muted)}
+.step .n{font-family:var(--f-mono);font-size:20px;font-weight:500;margin-top:6px;display:block;color:var(--fg)}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:6px}
+
+/* stats */
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat .v{font-family:var(--f-mono);font-size:28px;font-weight:500;line-height:1.2}
+.stat .l{color:var(--muted);font-size:13px}
+.balance{display:flex;height:10px;border-radius:6px;overflow:hidden;margin:10px 0 6px}
+.balance i{display:block}
+.row-list{display:flex;flex-direction:column}
+.row-list > *{padding:10px 0;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;justify-content:space-between}
+.row-list > *:last-child{border-bottom:none}
+.row-list .t{min-width:0;flex:1}
+.row-list .t b{font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-list .t span{font-size:12px;color:var(--muted)}
+
+/* table */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;min-width:820px}
+th{text-align:left;font-weight:500;font-size:12px;color:var(--muted);padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--surface-2)}
+.ptags{display:flex;gap:4px;flex-wrap:wrap}
+.ptag{font-size:11px;border-radius:5px;padding:1px 6px;display:inline-flex;gap:4px;align-items:center;background:var(--surface-2);white-space:nowrap}
+.ptag.blocked{text-decoration:line-through;color:var(--muted)}
+
+/* filters */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;padding:6px 12px;font-size:13px}
+.seg button.on{background:var(--accent-soft);color:var(--accent);font-weight:500}
+.field .seg{align-self:flex-start;max-width:100%;overflow-x:auto}
+.toolbar .seg{max-width:100%;overflow-x:auto}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+
+/* upload form */
+.drop{border:1.5px dashed var(--line);border-radius:12px;padding:18px;display:flex;gap:14px;align-items:center;background:var(--surface-2)}
+.thumb{width:120px;aspect-ratio:16/9;border-radius:8px;flex:none;background:linear-gradient(135deg,var(--accent-soft),var(--os-soft));display:grid;place-items:center;font-family:var(--f-mono);font-size:12px;color:var(--muted);max-width:100%}
+.thumb.v{width:64px;aspect-ratio:9/16}
+.field{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.field > label,.field > .lbl{font-weight:500}
+.field .hint{font-size:12px;color:var(--muted)}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{border:1px solid var(--line);border-radius:8px;padding:7px 12px;background:var(--surface);display:inline-flex;gap:6px;align-items:center}
+.opt.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:500}
+.opt[disabled]{opacity:.45;cursor:not-allowed;text-decoration:line-through}
+.opt small{font-weight:400;color:var(--muted);font-size:11px}
+.notice{border-radius:10px;padding:12px 14px;font-size:13px;display:flex;gap:10px;align-items:flex-start}
+.notice.bad{background:var(--bad-soft);color:var(--bad)}
+.notice.ok{background:var(--ok-soft);color:var(--ok)}
+.notice.warn{background:var(--warn-soft);color:var(--warn)}
+.notice b{display:block}
+.notice p{margin:2px 0 0;color:var(--fg)}
+.plat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.plat{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;background:var(--surface);text-align:left}
+.plat.on{border-color:var(--accent);background:var(--accent-soft)}
+.plat[disabled]{opacity:.5;cursor:not-allowed}
+.plat .box{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--muted);flex:none;margin-top:3px;display:grid;place-items:center;font-size:11px;color:var(--accent-fg)}
+.plat.on .box{background:var(--accent);border-color:var(--accent)}
+.plat b{display:block;font-weight:500}
+.plat span{font-size:12px;color:var(--muted)}
+
+/* detail */
+.poster{aspect-ratio:16/9;border-radius:10px;background:linear-gradient(160deg,#2a4a44,#1c2c4a);position:relative;overflow:hidden;max-width:100%}
+.poster.v{aspect-ratio:9/16;max-height:360px;margin:0 auto}
+.poster .tc{position:absolute;right:8px;bottom:8px;font-family:var(--f-mono);font-size:11px;background:rgba(0,0,0,.55);color:#fff;padding:1px 6px;border-radius:4px}
+.poster .play{position:absolute;inset:0;display:grid;place-items:center;color:rgba(255,255,255,.85);font-size:30px}
+.poster .ttl{position:absolute;left:12px;top:10px;right:12px;color:#fff;font-family:var(--f-display);font-size:17px;line-height:1.35;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+.kv{display:grid;grid-template-columns:72px minmax(0,1fr);gap:6px 10px;font-size:13px;margin-top:14px}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.tabs button{border:0;background:transparent;padding:9px 14px;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;color:var(--muted)}
+.tabs button.on{border-bottom-color:var(--accent);color:var(--fg);font-weight:500}
+.tabs button .chip{margin-left:4px}
+.transcript{display:flex;flex-direction:column;gap:2px;max-height:520px;overflow-y:auto}
+.transcript div{display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;padding:5px 6px;border-radius:6px}
+.transcript div:hover{background:var(--surface-2)}
+.transcript .mono{color:var(--muted);font-size:12px;padding-top:2px}
+mark{background:var(--bad-soft);color:var(--bad);border-radius:3px;padding:0 2px}
+.article{max-width:640px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px 26px;line-height:1.85;font-size:15px}
+.article h3{font-family:var(--f-display);font-size:22px;line-height:1.4;margin-bottom:10px}
+.article h4{font-size:16px;margin:22px 0 6px;padding-left:10px;border-left:3px solid var(--accent)}
+.article .lead{color:var(--muted);font-size:14px;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:6px}
+.article blockquote{margin:16px 0;padding:12px 16px;background:var(--accent-soft);border-radius:8px;font-family:var(--f-display);font-size:16px}
+.article .shot{aspect-ratio:16/9;border-radius:8px;background:repeating-linear-gradient(45deg,var(--surface-2),var(--surface-2) 10px,var(--bg) 10px,var(--bg) 20px);display:grid;place-items:center;font-size:12px;color:var(--muted);margin:12px 0;max-width:100%}
+.article .foot{margin-top:22px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.tpl-tag{font-size:11px;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:0 5px;margin-left:6px;font-family:var(--f-mono);vertical-align:middle}
+.wave{display:flex;align-items:center;gap:2px;height:64px;margin:10px 0}
+.wave i{flex:1;background:var(--accent);opacity:.7;border-radius:2px;min-width:1px}
+.copycard{border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--surface)}
+.copycard header{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.copycard header b{font-size:15px}
+.cfield{display:flex;flex-direction:column;gap:4px}
+.cfield .lab{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.cfield .val{background:var(--surface-2);border-radius:6px;padding:8px 10px;font-size:13px;white-space:pre-wrap;word-break:break-word}
+.covers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.cover{border-radius:10px;overflow:hidden;border:2px solid transparent;background:none;padding:0;text-align:left}
+.cover.on{border-color:var(--accent)}
+.cover .img{aspect-ratio:16/9;position:relative;display:flex;align-items:flex-end;padding:10px;color:#fff;font-family:var(--f-display);font-size:16px;line-height:1.3;text-shadow:0 1px 6px rgba(0,0,0,.6);max-width:100%}
+.cover .cap{font-size:12px;color:var(--muted);padding:6px 4px;display:block}
+.approvebar{position:sticky;bottom:0;margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:var(--shadow);padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+
+/* publish */
+.prog{height:6px;background:var(--surface-2);border-radius:4px;overflow:hidden;width:90px}
+.prog i{display:block;height:100%;background:var(--accent)}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(118px,1fr));gap:8px;overflow-x:auto}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;min-height:150px;display:flex;flex-direction:column;gap:6px}
+.day.today{border-color:var(--accent)}
+.day header{font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
+.ev{font-size:12px;border-radius:6px;padding:5px 7px;line-height:1.4}
+.ev.cn{background:var(--cn-soft)}.ev.os{background:var(--os-soft)}
+.ev b{font-weight:500;display:block}
+.ev span{color:var(--muted)}
+
+/* templates & accounts */
+.tpl-list button{width:100%;text-align:left;border:0;background:transparent;padding:9px 10px;border-radius:8px;display:flex;justify-content:space-between;gap:8px}
+.tpl-list button.on{background:var(--accent-soft);color:var(--accent);font-weight:500}
+.tpl-list button:hover:not(.on){background:var(--surface-2)}
+.tpl-list .grp{font-size:11px;letter-spacing:.08em;color:var(--muted);padding:12px 10px 4px}
+textarea.code{width:100%;min-height:380px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);padding:14px;font-family:var(--f-mono);font-size:13px;line-height:1.7;resize:vertical}
+.vars{display:flex;flex-wrap:wrap;gap:6px}
+.vars code{font-family:var(--f-mono);font-size:12px;background:var(--accent-soft);color:var(--accent);border-radius:4px;padding:1px 6px}
+.acct{display:flex;flex-direction:column;gap:8px}
+.acct header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.acct header b{font-size:15px}
+.acct p{margin:0;font-size:13px;color:var(--muted)}
+.wordchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.wordchips .chip{cursor:default}
+.wordchips .chip button{border:0;background:none;padding:0 0 0 2px;color:inherit;font-size:12px}
+.inline{display:flex;gap:8px;flex-wrap:wrap}
+.inline input{flex:1;min-width:140px;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--surface)}
+.textin{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface);width:100%;font-size:15px}
+.cuttrack{position:relative;height:22px;border-radius:6px;background:var(--accent-soft);overflow:hidden}
+.cuttrack i{position:absolute;top:0;bottom:0;width:2px;background:var(--bad);opacity:.7}
+button.chip{background:var(--surface);cursor:pointer}
+button.chip:hover{border-color:var(--accent);color:var(--accent)}
+.url{font-family:var(--f-mono);font-size:12px;background:var(--surface-2);border-radius:6px;padding:6px 8px;word-break:break-all}
+
+/* modal + toast */
+.scrim{position:fixed;inset:0;background:rgba(10,20,18,.45);display:grid;place-items:center;padding:16px;z-index:50}
+.modal{background:var(--surface);border-radius:14px;max-width:520px;width:100%;padding:22px;box-shadow:var(--shadow);max-height:90vh;overflow-y:auto}
+.modal h3{font-size:18px;margin-bottom:6px}
+.modal .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;z-index:60;box-shadow:var(--shadow)}
+.sample-note{font-size:12px;color:var(--muted);background:var(--surface-2);border-radius:8px;padding:6px 10px;display:inline-block}
+
+@media (max-width:980px){
+  .g-side,.g-detail,.g3{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail{position:sticky;top:env(safe-area-inset-top,0px);height:auto;flex-direction:row;align-items:center;padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));border-right:0;border-bottom:1px solid var(--line);z-index:20;gap:12px}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+  .brand span,.rail-foot{display:none}
+  .brand{padding:0}
+  .nav{flex-direction:row;overflow-x:auto;gap:4px;min-width:0}
+  .nav a{white-space:nowrap;padding:6px 10px;gap:6px}
+  main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+  .g2{grid-template-columns:minmax(0,1fr)}
+  .covers{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .flow{grid-template-columns:repeat(8,120px)}
+  .article{padding:20px 16px}
+}
+@media (prefers-reduced-motion:no-preference){.btn,.opt,.plat,.nav a{transition:background .15s,border-color .15s}}
+</style>
+
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><b>清清</b><span>时予清 · 发布工作台</span></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rail-foot">交互原型 · 全部为示例数据<br>不连接任何平台</div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div id="layer"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- 平台与规则 ---------- */
+const METHOD={api:'API 全自动',rss:'RSS 自动同步',browser:'浏览器半自动',draft:'草稿箱 + 你点发布'};
+const P={
+  bili:{name:'B站',region:'cn',kind:'视频',orient:['h','v'],method:'browser'},
+  sph:{name:'视频号',region:'cn',kind:'视频',orient:['h','v'],method:'browser'},
+  dy:{name:'抖音',region:'cn',kind:'视频',orient:['v'],method:'browser'},
+  xhs:{name:'小红书',region:'cn',kind:'视频',orient:['v','h'],method:'browser'},
+  gzh:{name:'公众号',region:'cn',kind:'长文',orient:['h'],method:'draft'},
+  xyz:{name:'小宇宙',region:'cn',kind:'播客',orient:['h'],method:'rss'},
+  xmly:{name:'喜马拉雅',region:'cn',kind:'播客',orient:['h'],method:'rss'},
+  yt:{name:'YouTube',region:'os',kind:'视频',orient:['h'],method:'api'},
+  yts:{name:'YouTube Shorts',region:'os',kind:'视频',orient:['v'],method:'api'},
+  pod:{name:'海外播客',region:'os',kind:'播客',orient:['h'],method:'rss',tbd:true},
+  zhihu:{name:'知乎',region:'cn',kind:'长文',orient:['h','v'],method:'browser'},
+  xhsn:{name:'小红书图文',region:'cn',kind:'图文',orient:['h','v'],method:'browser'},
+  wb:{name:'微博',region:'cn',kind:'图文',orient:['h','v'],method:'browser'},
+  ytc:{name:'YouTube 社区帖',region:'os',kind:'图文',orient:['h','v'],method:'browser'},
+};
+const DEFAULT_ON={h:['bili','sph','gzh','xyz','xmly','yt'],v:['dy','xhs','sph','yts']};
+const TYPES={talk:'纯口播',show:'口播 + B roll',screen:'录屏教学',vlog:'Vlog',audio:'音频 + B roll',text:'长文本'};
+const TOPICS=[{k:'AI 实操',r:'all'},{k:'心理学',r:'all'},{k:'人情世故',r:'all'},{k:'生活',r:'all'},{k:'修行',r:'os'},{k:'玄学·法界',r:'os'}];
+let WORDS=['烧纸','法界','玄学','鬼','阴间','超度','风水','算命','因果报应','灵体','附身','冤亲债主'];
+const ST={
+  gen:['生成中','acc'],review:['待审核','warn'],queued:['排队中','acc'],uploading:['上传中','acc'],
+  confirm:['待你点发布','warn'],done:['已发布','ok'],fail:['失败','bad'],blocked:['合规拦截','bad'],off:['未选','']
+};
+const ITEM_ST={gen:['生成中','acc'],review:['待审核','warn'],publishing:['发布中','acc'],done:['已发布','ok']};
+
+/* ---------- 示例数据 ---------- */
+let items=[
+ {id:1,title:'用 Claude 搭一个自动发布工作流',type:'screen',orient:'h',dur:'24:16',topic:'AI 实操',regions:['cn','os'],status:'review',date:'11-26',
+  jobs:{bili:'review',sph:'review',gzh:'review',yt:'review',xyz:'off',xmly:'off'}},
+ {id:2,title:'为什么你总是不好意思拒绝别人',type:'talk',orient:'h',dur:'16:05',topic:'心理学',regions:['cn','os'],status:'publishing',date:'11-25',
+  jobs:{bili:'done',sph:'confirm',gzh:'confirm',xyz:'done',xmly:'uploading',yt:'done'}},
+ {id:3,title:'烧纸到底烧给谁：法界的规矩',type:'show',orient:'h',dur:'21:40',topic:'玄学·法界',regions:['os'],status:'review',date:'11-25',
+  jobs:{yt:'review',bili:'blocked',sph:'blocked',gzh:'blocked',xyz:'blocked',xmly:'blocked'}},
+ {id:4,title:'AI 一分钟：用语音写周报',type:'talk',orient:'v',dur:'0:58',topic:'AI 实操',regions:['cn','os'],status:'gen',date:'11-26',
+  jobs:{dy:'gen',xhs:'gen',sph:'gen',yts:'gen'}},
+ {id:5,title:'饭局上领导敬酒，怎么接才得体',type:'talk',orient:'v',dur:'1:12',topic:'人情世故',regions:['cn'],status:'done',date:'11-23',
+  jobs:{dy:'done',xhs:'done',sph:'done'}},
+ {id:6,title:'妄念与止念：修行里最难的一步',type:'talk',orient:'h',dur:'19:22',topic:'修行',regions:['os'],status:'done',date:'11-22',
+  jobs:{yt:'done'}},
+ {id:8,title:'关系里的边界感：怎么拒绝才不伤人',type:'audio',orient:'h',dur:'33:05',topic:'心理学',regions:['cn','os'],status:'review',date:'11-26',
+  jobs:{xyz:'review',xmly:'review',bili:'review',sph:'review',yt:'review',gzh:'review'}},
+ {id:9,title:'我为什么不再讨好任何人',type:'text',orient:'h',dur:'3,240 字',topic:'人情世故',regions:['cn','os'],status:'done',date:'11-24',
+  jobs:{gzh:'done',zhihu:'done',xhsn:'done',wb:'done',ytc:'done'}},
+ {id:7,title:'京都三日',type:'vlog',orient:'h',dur:'9:48',topic:'生活',regions:['cn','os'],status:'publishing',date:'11-21',
+  jobs:{bili:'done',sph:'fail',yt:'done'}},
+];
+let current=1, tab='article', coverPick=0, tplPick='gzh-talk', libFilter='all';
+
+/* ---------- 工具 ---------- */
+function chip(t,c=''){return `<span class="chip ${c}">${esc(t)}</span>`}
+function regionChips(rs){return rs.map(r=>r==='cn'?chip('国内','cn'):chip('海外','os')).join(' ')}
+function orientChip(o){return chip(o==='h'?'横屏 16:9':'竖屏 9:16')}
+function stChip(s){const [t,c]=ST[s];return chip(t,c)}
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2400)}
+function countReview(){return items.filter(i=>i.status==='review').length}
+function allJobs(){const out=[];items.forEach(i=>Object.entries(i.jobs).forEach(([p,s])=>out.push({item:i,p,s})));return out}
+
+/* ---------- 导航 ---------- */
+const VIEWS=[['dashboard','总览'],['new','上传新内容'],['library','内容库'],['review','审核'],['publish','发布中心'],['templates','模板'],['accounts','平台与规则']];
+function renderNav(v){
+  $('#nav').innerHTML=VIEWS.map(([k,l])=>{
+    const n=k==='review'?countReview():0;
+    const on=(v===k)||(v==='detail'&&k==='library');
+    return `<a href="#${k}" class="${on?'on':''}"><span>${l}</span>${n?`<span class="count">${n}</span>`:''}</a>`}).join('');
+}
+
+/* ---------- 总览 ---------- */
+function vDashboard(){
+  const jobs=allJobs();
+  const pending=jobs.filter(j=>j.s==='confirm').length, fails=jobs.filter(j=>j.s==='fail').length, uploading=jobs.filter(j=>['queued','uploading'].includes(j.s)).length;
+  const steps=[
+    ['you','录制','横屏或竖屏分开录',null],
+    ['you','拖进清清','视频、音频、长文本都行，不用先剪',null],
+    ['auto','剪辑加工','视频粗剪加字幕；音频配 B roll 成视频；长文排版拆短帖',null],
+    ['auto','预填 + 合规','猜类型、主题、标题、平台；玄学修行自动只发海外',null],
+    ['auto','自动生成','播客音频、公众号长文、各平台文案、封面',items.filter(i=>i.status==='gen').length],
+    ['you','审核','粗剪和全部成品一页看完，一键批准',countReview()],
+    ['auto','发布','API 和 RSS 自动发；国内视频平台由浏览器代你填好',uploading+pending],
+    ['auto','数据回收','播放、涨粉、国内海外比例','以后'],
+  ];
+  return `
+  <div class="head"><div><div class="eyebrow">11 月 26 日 · 周四</div><h1>早上好，时予清</h1><p>今天有 ${countReview()} 条等你审核，${pending} 个平台等你点发布。</p></div>
+  <a class="btn primary" href="#new">＋ 上传新内容</a></div>
+
+  <section class="panel" style="margin-bottom:16px">
+    <h2>一条视频走完的全流程 <small class="legend"><span><i style="background:var(--cn)"></i>你做</span><span><i style="background:var(--accent)"></i>清清自动</span></small></h2>
+    <div class="flow">${steps.map(([w,b,s,n])=>`<div class="step ${w}"><div class="who">${w==='you'?'你':'自动'}</div><b>${b}</b><span>${s}</span>${n!==null?`<span class="n">${n}</span>`:''}</div>`).join('')}</div>
+  </section>
+
+  <div class="grid g-side">
+    <div class="grid" style="align-content:start">
+      <section class="panel">
+        <h2>需要你处理 <small>按紧急程度排序</small></h2>
+        <div class="row-list">
+          ${jobs.filter(j=>j.s==='fail').map(j=>`<div><span class="dot bad"></span><div class="t"><b>${P[j.p].name} 登录已过期</b><span>「${esc(j.item.title)}」上传失败，重新登录后自动重试</span></div><a class="btn sm" href="#accounts">重新登录</a></div>`).join('')}
+          ${items.filter(i=>i.status==='review').map(i=>`<div><span class="dot warn"></span><div class="t"><b>${esc(i.title)}</b><span>${TYPES[i.type]} · ${i.dur} · ${i.regions.length===1&&i.regions[0]==='os'?'仅海外':'国内 + 海外'}</span></div><button class="btn sm" data-open="${i.id}">去审核</button></div>`).join('')}
+          ${jobs.filter(j=>j.s==='confirm').map(j=>`<div><span class="dot warn"></span><div class="t"><b>${P[j.p].name} 已填好，等你点发布</b><span>「${esc(j.item.title)}」</span></div><a class="btn sm" href="#publish">去确认</a></div>`).join('')}
+        </div>
+      </section>
+      <section class="panel">
+        <h2>最近内容 <a class="btn ghost sm" href="#library">全部 →</a></h2>
+        <div class="row-list">${items.slice(0,5).map(i=>{const [t,c]=ITEM_ST[i.status];return `<div data-open="${i.id}" style="cursor:pointer"><div class="t"><b>${esc(i.title)}</b><span>${i.date} · ${TYPES[i.type]} · ${i.orient==='h'?'横屏':'竖屏'}</span></div>${regionChips(i.regions)} ${chip(t,c)}</div>`}).join('')}</div>
+      </section>
+    </div>
+    <div class="grid" style="align-content:start">
+      <section class="panel">
+        <h2>本月国内 / 海外 <small>目标约 1 : 1</small></h2>
+        <div class="grid g2" style="gap:8px">
+          <div class="stat"><span class="v" style="color:var(--cn)">9</span><span class="l">国内发布条数</span></div>
+          <div class="stat"><span class="v" style="color:var(--os)">8</span><span class="l">海外发布条数</span></div>
+        </div>
+        <div class="balance"><i style="width:53%;background:var(--cn)"></i><i style="width:47%;background:var(--os)"></i></div>
+        <div style="font-size:12px;color:var(--muted)">海外 8 条里有 3 条是玄学、修行，只在海外发。</div>
+      </section>
+      <section class="panel">
+        <h2>本月内容类型</h2>
+        <div class="row-list">
+          ${[['纯口播',7,'ok'],['录屏教学',4,'acc'],['口播 + B roll',3,'acc'],['Vlog',2,'idle']].map(([k,n,d])=>`<div><span class="dot ${d}"></span><div class="t"><b>${k}</b></div><span class="mono">${n}</span></div>`).join('')}
+        </div>
+      </section>
+      <section class="panel">
+        <h2>播客与长文</h2>
+        <div class="row-list">
+          <div><div class="t"><b>小宇宙 · 喜马拉雅</b><span>RSS 上次同步 2 小时前</span></div>${chip('正常','ok')}</div>
+          <div><div class="t"><b>公众号草稿箱</b><span>1 篇草稿等你在手机上点发布</span></div>${chip('待你点','warn')}</div>
+        </div>
+      </section>
+    </div>
+  </div>`;
+}
+
+/* ---------- 上传 ---------- */
+const SAMPLES=[
+ {kind:'video',label:'视频 · 口播',file:'IMG_4821.MOV',orient:'h',rawS:1590,finalS:1122,size:'2.3 GB',res:'3840 × 2160',type:'talk',typeWhy:'全程正脸对镜头，没有屏幕录制，也没有插入素材',topic:'心理学',topicWhy:'高频词：情绪、内耗、边界感、讨好',titles:['情绪稳定的人，都做对了这三件事','为什么你总在内耗？三个让情绪稳下来的方法','情绪稳定不是忍，是会处理'],hits:[]},
+ {kind:'video',label:'视频 · 录屏',file:'屏幕录制 2026-11-26.mov',orient:'h',rawS:2285,finalS:1456,size:'4.1 GB',res:'2880 × 1800',type:'screen',typeWhy:'73% 的画面是屏幕录制，右下角有人像小窗',topic:'AI 实操',topicWhy:'高频词：Claude、提示词、工作流、模板',titles:['用 Claude 搭一个自动发布工作流','一条视频自动变 5 份内容：我的 AI 工作流','AI 帮我做自媒体：完整实操'],hits:[]},
+ {kind:'video',label:'视频 · 节目',file:'C0137.MP4 + 14 段空镜',orient:'h',rawS:1872,finalS:1300,size:'5.6 GB',res:'3840 × 2160',type:'show',typeWhy:'除了口播主视频，还一起拖进来 14 段空镜素材',topic:'玄学·法界',topicWhy:'高频词：烧纸、法界、冤亲债主、超度',titles:['烧纸到底烧给谁：法界的规矩','烧纸的讲究，很多人都做错了','烧给亲人，还是烧给冤亲债主？'],hits:['烧纸 ×6','法界 ×4','冤亲债主 ×2','超度 ×1']},
+ {kind:'video',label:'视频 · 竖屏',file:'IMG_4830.MOV',orient:'v',rawS:167,finalS:62,size:'410 MB',res:'1080 × 1920',type:'talk',typeWhy:'竖屏正脸口播',topic:'AI 实操',topicWhy:'高频词：语音输入、周报、AI',titles:['AI 一分钟：用语音写周报','周报写 1 小时？试试这样用 AI','30 秒写完周报'],hits:[]},
+ {kind:'audio',label:'音频',file:'深夜聊聊_边界感.m4a',orient:'h',rawS:2460,finalS:1985,size:'58 MB',res:'音频 · 48 kHz',type:'audio',typeWhy:'只有声音，没有画面',topic:'心理学',topicWhy:'高频词：边界感、关系、拒绝、愧疚',titles:['关系里的边界感：怎么拒绝才不伤人','你不是不会拒绝，是怕被讨厌','边界感强的人，活得都不累'],hits:[]},
+ {kind:'text',label:'长文本',file:'我为什么不再讨好任何人.md',orient:'h',rawS:0,finalS:0,size:'3,240 字',res:'Markdown',type:'text',typeWhy:'纯文字稿',topic:'人情世故',topicWhy:'高频词：讨好、面子、人情、拒绝',titles:['我为什么不再讨好任何人','讨好了十年，我学会的三件事','不讨好，才是对关系最大的尊重'],hits:[]},
+];
+const KIND={video:'视频',audio:'音频',text:'长文本'};
+const VTYPES=['talk','show','screen','vlog'];
+const CUTKIND={pause:'停顿',filler:'口头禅',repeat:'重复',retake:'说错重来',head:'开头结尾'};
+const LEVELS={
+ safe:{n:'保守',d:'只删长停顿和明显说错重来的地方',c:{pause:38,filler:0,repeat:12,retake:8,head:2},f:1.08},
+ std:{n:'标准',d:'再删“嗯、啊、那个”和重复的半句',c:{pause:61,filler:54,repeat:19,retake:8,head:2},f:1},
+ aggr:{n:'紧凑',d:'连“然后、就是”也删，节奏最快',c:{pause:74,filler:96,repeat:23,retake:8,head:2},f:.95},
+};
+const CUTS=[
+ ['00:00','开机后准备','head',18.2],['01:12','“嗯……那个”','filler',1.4],['02:45','重复：“就是说我们，就是说我们”','repeat',2.1],
+ ['04:10','说错重来：“三个，不对，四个方法”','retake',3.6],['06:32','停顿 3.1 秒','pause',3.1],['09:05','“然后然后”','filler',.8],
+ ['13:40','整句重说了一遍，保留第二遍','retake',11.5],['结尾','关机前','head',9.4],
+];
+const BROLL=[
+ ['00:00','开场：最近收到很多留言','文字卡','标题大字 + 你的头像'],
+ ['01:40','什么是边界感','你的素材库','咖啡馆空镜、窗外街景'],
+ ['05:10','案例：同事总让你帮忙','AI 生成插画','办公室、两个人对话，3 张'],
+ ['09:30','怎么开口拒绝','你的素材库','手部特写、走路背影'],
+ ['14:20','拒绝之后的愧疚感','AI 生成插画','夜晚书桌、台灯，2 张'],
+ ['31:40','一句话练习','文字卡','金句：拒绝的是事，不是人'],
+];
+const PROC={
+ video:['上传素材','语音识别（逐字时间戳）','找出停顿、口误和重复','剪辑并生成字幕','判断类型、主题，选平台和标题','国内合规检查'],
+ audio:['上传音频','语音识别（逐字时间戳）','去停顿、口误和重复','按内容配 B roll 画面','合成横屏视频 + 字幕','判断主题，选平台和标题','国内合规检查'],
+ text:['读取文本','排版成公众号长文','拆成图文短帖','判断主题，选平台和标题','国内合规检查'],
+};
+const DEFAULTS={video:{h:['bili','sph','gzh','xyz','xmly','yt'],v:['dy','xhs','sph','yts']},audio:['xyz','xmly','bili','sph','yt','gzh'],text:['gzh','zhihu','xhsn','wb','ytc']};
+const draft={sample:0,proc:-1,timer:null,kind:'video',orient:'h',type:'talk',topic:'心理学',regions:['cn','os'],plats:null,title:'',edited:new Set(),level:'std',restored:new Set(),showCuts:false,brollSrc:'mix'};
+const fmt=s=>{s=Math.round(s);return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
+function applySample(k){
+  const s=SAMPLES[k];
+  Object.assign(draft,{sample:k,kind:s.kind,orient:s.orient,type:s.type,topic:s.topic,regions:s.hits.length||TOPICS.find(t=>t.k===s.topic).r==='os'?['os']:['cn','os'],plats:null,title:s.titles[0],edited:new Set(),level:'std',restored:new Set(),showCuts:false});
+}
+function runProc(k){
+  clearInterval(draft.timer);applySample(k);draft.proc=0;render();
+  draft.timer=setInterval(()=>{draft.proc++;if(draft.proc>=PROC[draft.kind].length){clearInterval(draft.timer);draft.proc=-1;toast('处理完成，信息已预填好')}if(location.hash==='#new')render()},420);
+}
+function draftFlag(){return TOPICS.find(t=>t.k===draft.topic).r==='os'}
+function availKeys(){
+  if(draft.kind==='text') return ['gzh','zhihu','xhsn','wb','ytc'];
+  if(draft.kind==='audio') return ['xyz','xmly','pod','bili','sph','yt','gzh','zhihu'];
+  return Object.keys(P).filter(k=>P[k].orient.includes(draft.orient)&&P[k].kind!=='图文'&&(k!=='zhihu'||draft.orient==='h'));
+}
+function draftPlats(){
+  if(!draft.plats){
+    const d=draft.kind==='video'?DEFAULTS.video[draft.orient]:DEFAULTS[draft.kind];
+    draft.plats=new Set(d);
+    if(draft.type==='screen'){draft.plats.delete('xyz');draft.plats.delete('xmly')}
+    if(draft.type==='vlog'){['gzh','xyz','xmly'].forEach(p=>draft.plats.delete(p))}
+  }
+  return draft.plats;
+}
+function draftFinal(){const s=SAMPLES[draft.sample];let t=s.finalS*LEVELS[draft.level].f;draft.restored.forEach(i=>t+=CUTS[i][3]);return Math.min(t,s.rawS)}
+function tag(field){return draft.edited.has(field)?chip('你改过',''):chip('AI 预填','acc')}
+
+function cutPanel(s){
+  const L=LEVELS[draft.level], total=Object.values(L.c).reduce((a,b)=>a+b,0)-draft.restored.size, fin=draftFinal();
+  const ticks=Array.from({length:total},(_,k)=>`<i style="left:${((k*61.8)%100).toFixed(2)}%"></i>`).join('');
+  const isA=s.kind==='audio';
+  return `<section class="panel">
+    <h2>${isA?'去口误':'粗剪'} <small>${chip('已完成','ok')}</small></h2>
+    <div class="drop" style="margin-bottom:14px">
+      <div class="thumb ${s.orient==='v'?'v':''}">${isA?'♪ ':''}${fmt(fin)}</div>
+      <div style="min-width:0;flex:1"><b style="word-break:break-all">${esc(s.file)}</b>
+        <div style="font-size:12px;color:var(--muted)">${s.res}${isA?'':` · 自动识别为${s.orient==='h'?'横屏':'竖屏'}`}</div>
+        <div style="margin-top:6px;font-size:13px"><span class="mono">${fmt(s.rawS)}</span> 原始 → <b class="mono" style="color:var(--accent)">${fmt(fin)}</b> · 删了 ${total} 处</div></div>
+      <button class="btn sm" data-toast="播放处理后的${isA?'音频':'成片'}（示例）">▶ ${isA?'试听':'预览'}</button>
+    </div>
+    <div class="cuttrack" aria-hidden="true">${ticks}</div>
+    <div class="field" style="margin:12px 0"><span class="lbl">剪的力度</span>
+      <div class="seg">${Object.entries(LEVELS).map(([k,x])=>`<button class="${draft.level===k?'on':''}" data-level="${k}">${x.n}</button>`).join('')}</div>
+      <span class="hint">${L.d}。默认用「标准」。</span></div>
+    <div class="chips" style="margin-bottom:12px">${Object.entries(L.c).filter(([k,n])=>n).map(([k,n])=>chip(`${CUTKIND[k]} ${n}`)).join('')}</div>
+    ${isA?'':`<div class="field" style="margin-bottom:12px"><span class="lbl">字幕</span>
+      <span style="font-size:13px">${s.orient==='v'?'烧进画面（抖音、小红书、视频号、Shorts 都需要）':'视频号烧进画面；B站、YouTube 上传字幕文件，观众可开关，也能被搜索到'}</span></div>`}
+    ${s.type==='show'?`<div class="notice warn" style="margin-bottom:12px"><span>◐</span><div><b>B roll 自动插入（试验）</b><p>清清按讲到的内容，把 14 段空镜插到 11 个位置。审核时可以逐个换掉或删掉。</p></div></div>`:''}
+    <button class="btn sm" data-cuts>${draft.showCuts?'收起':'逐条看删掉的地方'}</button>
+    ${draft.showCuts?`<div class="row-list" style="margin-top:8px">${CUTS.map(([t,txt,k,sec],i)=>{const r=draft.restored.has(i);return `<div><span class="mono" style="font-size:12px;color:var(--muted);width:44px">${t}</span><div class="t"><b style="${r?'':'text-decoration:line-through;color:var(--muted)'}">${esc(txt)}</b><span>${CUTKIND[k]} · ${sec} 秒</span></div><button class="btn sm" data-restore="${i}">${r?'重新删掉':'恢复'}</button></div>`}).join('')}</div><p style="font-size:12px;color:var(--muted);margin:8px 0 0">示例只列 8 条。真实版本点任意一条可以跳到前后听一遍。</p>`:''}
+  </section>`;
+}
+function brollPanel(){
+  const srcs=[['mix','混合（推荐）','素材库优先，没有合适的用 AI 插画，再没有用文字卡'],['lib','只用我的素材库','画面最像你本人的风格'],['simple','最省事','一张你的照片 + 声波 + 大字幕']];
+  const cur=srcs.find(x=>x[0]===draft.brollSrc);
+  const ico={'文字卡':'acc','你的素材库':'ok','AI 生成插画':'warn'};
+  return `<section class="panel">
+    <h2>配画面，生成视频 <small>${chip('横屏 16:9 · 已生成','ok')}</small></h2>
+    <div class="field" style="margin-bottom:12px"><span class="lbl">画面来源</span>
+      <div class="seg">${srcs.map(([k,n])=>`<button class="${draft.brollSrc===k?'on':''}" data-broll="${k}">${n}</button>`).join('')}</div>
+      <span class="hint">${cur[2]}</span></div>
+    ${draft.brollSrc==='simple'?`<div class="poster" style="max-width:420px"><span class="ttl">${esc(draft.title)}</span><span class="play">◉ ∿∿∿∿</span><span class="tc">${fmt(draftFinal())}</span></div>`
+    :`<div class="row-list">${BROLL.filter(b=>draft.brollSrc!=='lib'||b[2]!=='AI 生成插画').map(([t,txt,src,det])=>`<div><span class="mono" style="font-size:12px;color:var(--muted);width:44px">${t}</span><div class="t"><b>${esc(txt)}</b><span>${chip(src,ico[src])} ${esc(det)}</span></div><button class="btn sm" data-toast="已换一组画面（示例）">换一个</button></div>`).join('')}</div>`}
+    <p style="font-size:12px;color:var(--muted);margin:10px 0 0">字幕烧进画面。生成的视频会和音频一起进审核，可以逐段换画面。竖屏切片以后再做。</p>
+  </section>`;
+}
+function textPanel(s){
+  return `<section class="panel">
+    <h2>长文和短帖 <small>${chip('已生成','ok')}</small></h2>
+    <div class="drop" style="margin-bottom:14px"><div class="thumb">${s.size}</div><div style="min-width:0;flex:1"><b style="word-break:break-all">${esc(s.file)}</b><div style="font-size:12px;color:var(--muted)">原文不改，只排版、加小标题和金句</div></div><button class="btn sm" data-toast="打开长文预览（示例）">看长文</button></div>
+    <div class="grid g2" style="gap:10px">
+      <div class="copycard"><header><b>知乎</b>${chip('国内','cn')}</header><div class="cfield"><div class="val">发完整文章（专栏），标题改成问题式：「为什么越讨好别人，关系反而越差？」同时发一条想法，摘一段金句引到文章。</div></div><span style="font-size:12px;color:var(--muted)">文章 3,240 字 · 想法 1 条 · 3 个话题</span></div>
+      <div class="copycard"><header><b>小红书图文</b>${chip('国内','cn')}</header><div class="cover"><div class="img" style="aspect-ratio:3/4;background:linear-gradient(160deg,#2b5a52,#16303a)">讨好了十年<br>我学会这三件事</div></div><div class="val" style="font-size:12px;background:var(--surface-2);border-radius:6px;padding:8px">6 张卡片 · 正文 420 字 · 5 个话题</div></div>
+      <div class="copycard"><header><b>微博</b>${chip('国内','cn')}</header><div class="cfield"><div class="val">讨好别人的时候，我们其实是在交换一种安全感。后来我发现，不讨好，反而是对关系最大的尊重。全文在公众号「时予清」。</div></div><span class="mono" style="font-size:12px;color:var(--muted)">88 / 2000</span></div>
+      <div class="copycard"><header><b>YouTube 社区帖</b>${chip('海外','os')}</header><div class="cfield"><div class="val">新写了一篇：我为什么不再讨好任何人。你有没有一段时间，总是怕别人不高兴？评论区聊聊。</div></div><span style="font-size:12px;color:var(--muted)">附投票：你更怕哪种？</span></div>
+    </div>
+  </section>`;
+}
+function vNew(){
+  const s=SAMPLES[draft.sample];
+  const head=`<div class="head"><div><div class="eyebrow">第 1 步</div><h1>上传新内容</h1><p>视频、音频、长文本都可以直接拖进来，清清自动认出是哪一种。剪辑、配画面、排版和平台都先替你做好，你只改不对的地方。</p></div></div>
+  <div class="toolbar"><span style="font-size:13px;color:var(--muted)">演示：拖入一条示例</span><div class="seg">${SAMPLES.map((x,k)=>`<button class="${draft.sample===k?'on':''}" data-sample="${k}">${x.label}</button>`).join('')}</div></div>`;
+  if(draft.proc>=0){
+    const steps=PROC[s.kind];
+    return head+`<section class="panel" style="max-width:560px"><div class="drop" style="margin-bottom:16px"><div class="thumb ${s.orient==='v'?'v':''}">${s.kind==='text'?s.size:fmt(s.rawS)}</div><div style="min-width:0"><b style="word-break:break-all">${esc(s.file)}</b><div style="font-size:12px;color:var(--muted)">识别为${KIND[s.kind]} · ${s.res} · ${s.size}</div></div></div>
+    <div class="row-list">${steps.map((p,k)=>`<div><span class="dot ${k<draft.proc?'ok':k===draft.proc?'acc':'idle'}"></span><div class="t"><b style="font-weight:${k===draft.proc?700:400}">${p}</b></div><span style="font-size:12px;color:var(--muted)">${k<draft.proc?'完成':k===draft.proc?'进行中…':''}</span></div>`).join('')}</div>
+    <p style="font-size:12px;color:var(--muted);margin:12px 0 0">可以关掉页面，好了会通知你。</p></section>`;
+  }
+  const flagged=draftFlag();
+  const cnOff=flagged||!draft.regions.includes('cn'), osOff=!draft.regions.includes('os');
+  const plats=draftPlats(), avail=availKeys();
+  const group=(label,filter)=>{const list=avail.filter(k=>filter(P[k]));if(!list.length)return '';
+    return `<div class="field"><span class="lbl">${label}</span><div class="plat-grid">${list.map(k=>{const p=P[k];
+      const dis=(p.region==='cn'&&cnOff)||(p.region==='os'&&osOff)||p.tbd; const on=!dis&&plats.has(k);
+      const why=p.tbd?'以后再定':(p.region==='cn'&&flagged?'合规拦截':(dis?'没选这个区域':METHOD[p.method]));
+      return `<button class="plat ${on?'on':''}" data-plat="${k}" ${dis?'disabled':''}><span class="box">${on?'✓':''}</span><span><b>${p.name}</b><span>${p.kind} · ${why}</span></span></button>`}).join('')}</div></div>`};
+  const why=t=>`<span class="hint">AI 判断：${esc(t)}</span>`;
+  let groups='';
+  if(s.kind==='video') groups=group(`视频平台 ${tag('plats')}`,p=>p.kind==='视频')+group('从视频派生',p=>p.kind!=='视频');
+  if(s.kind==='audio') groups=group(`播客平台 ${tag('plats')}`,p=>p.kind==='播客')+group('配好画面的视频发到',p=>p.kind==='视频')+group('文字版',p=>p.kind==='长文');
+  if(s.kind==='text') groups=group(`整篇长文发到 ${tag('plats')}`,p=>p.kind==='长文')+group('拆成短帖发到',p=>p.kind==='图文');
+  const first=s.kind==='video'?cutPanel(s):s.kind==='audio'?cutPanel(s)+brollPanel():textPanel(s);
+  const after={
+    video:[['播客版','抽音轨、降噪、响度统一到 -16 LUFS、加片头片尾'],['公众号长文','按长文模板改写，录屏类自动配截图'],['各平台文案','标题、简介、标签、章节，按各平台字数限制'],['封面候选 3 张','挑表情和构图最好的帧，叠上标题']],
+    audio:[['播客版','降噪、响度统一、加片头片尾，直接用原音频'],['视频文案和封面','按各平台字数限制，封面用你的照片 + 标题'],['公众号长文','把讲的内容整理成文章']],
+    text:[['公众号长文','排版、小标题、金句、配图位'],['知乎','完整文章 + 一条想法，标题改成问题式'],['短帖','小红书图文卡片、微博、YouTube 社区帖，各自改写长度和语气']],
+  }[s.kind];
+  return head+`
+  <div class="grid g-side">
+    <div class="grid" style="align-content:start">
+    ${first}
+    <section class="panel">
+      <h2>发布信息 <small>都已预填，不对就点着改</small></h2>
+      <div class="field"><span class="lbl">标题 ${tag('title')}</span>
+        <input id="draft-title" class="textin" value="${esc(draft.title)}" aria-label="标题">
+        <div class="chips">${s.titles.filter(t=>t!==draft.title).map(t=>`<button class="chip" data-title="${esc(t)}">换成：${esc(t)}</button>`).join('')}</div></div>
+      ${s.kind==='video'?`<div class="field"><span class="lbl">视频类型 ${tag('type')}</span>
+        <div class="opts">${VTYPES.map(k=>`<button class="opt ${draft.type===k?'on':''}" data-type="${k}">${TYPES[k]}</button>`).join('')}</div>
+        ${draft.edited.has('type')?'':why(s.typeWhy)}</div>`:`<div class="field"><span class="lbl">素材类型</span><div>${chip(KIND[s.kind],'acc')}</div></div>`}
+      <div class="field"><span class="lbl">主题 ${tag('topic')}</span>
+        <div class="opts">${TOPICS.map(t=>`<button class="opt ${draft.topic===t.k?'on':''}" data-topic="${t.k}">${t.k}${t.r==='os'?' <small>仅海外</small>':''}</button>`).join('')}</div>
+        ${draft.edited.has('topic')?'':why(s.topicWhy)}</div>
+      <div class="field"><span class="lbl">发到哪里 ${tag('regions')}</span>
+        <div class="opts">
+          <button class="opt ${draft.regions.includes('cn')&&!flagged?'on':''}" data-region="cn" ${flagged?'disabled':''}>国内</button>
+          <button class="opt ${draft.regions.includes('os')?'on':''}" data-region="os">海外</button></div></div>
+      ${flagged?`<div class="notice bad" style="margin-bottom:18px"><span>⛔</span><div><b>国内平台已自动关闭</b><p>主题「${esc(draft.topic)}」按你的规则只发海外。${s.hits.length?`内容里查到：${s.hits.join('、')}，审核页会标出位置。`:''}</p></div></div>`
+      :`<div class="notice ok" style="margin-bottom:18px"><span>✓</span><div><b>国内合规检查通过</b><p>内容里没有词库中的敏感词。</p></div></div>`}
+      ${groups}
+      ${s.kind==='video'&&draft.orient==='v'?'<span class="hint" style="display:block;margin:-8px 0 18px">竖屏短视频默认不出长文和播客。</span>':''}
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn" data-reset>恢复 AI 预填</button>
+        <button class="btn primary" data-start>确认，开始生成</button>
+      </div>
+    </section>
+    </div>
+    <aside class="grid" style="align-content:start">
+      <section class="panel">
+        <h2>三种素材怎么走</h2>
+        <div class="row-list" style="font-size:13px">
+          <div><div class="t"><b>视频</b><span>粗剪 + 字幕 → 视频平台，再派生播客和长文</span></div>${s.kind==='video'?chip('当前','acc'):''}</div>
+          <div><div class="t"><b>音频</b><span>去口误 → 播客平台；配上 B roll 合成视频 → 视频平台；再派生长文</span></div>${s.kind==='audio'?chip('当前','acc'):''}</div>
+          <div><div class="t"><b>长文本</b><span>排版 → 公众号、知乎；拆成短帖 → 小红书图文、微博、YouTube 社区帖</span></div>${s.kind==='text'?chip('当前','acc'):''}</div>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>点「确认」之后</h2>
+        <div class="row-list" style="font-size:13px">${after.map(([a,b])=>`<div><div class="t"><b>${a}</b><span>${b}</span></div></div>`).join('')}</div>
+        <p style="font-size:12px;color:var(--muted);margin:10px 0 0">全部好了会进「审核」。</p>
+      </section>
+      ${s.kind==='video'?`<section class="panel"><h2>想自己精修？</h2><p style="font-size:13px;margin:0 0 10px">粗剪不满意的话，可以导出给剪映接着改，改完再拖回来。</p><button class="btn sm" data-toast="以后做：导出剪映工程（先确认剪映当前版本是否支持导入）">导出到剪映（以后）</button></section>`:''}
+    </aside>
+  </div>`;
+}
+
+/* ---------- 内容库 ---------- */
+function vLibrary(){
+  const list=items.filter(i=>libFilter==='all'||(libFilter==='cn'&&i.regions.includes('cn'))||(libFilter==='os'&&i.regions.includes('os'))||(libFilter==='osonly'&&i.regions.length===1&&i.regions[0]==='os'));
+  return `
+  <div class="head"><div><h1>内容库</h1><p>每条视频是唯一源头，它派生的音频、长文和各平台发布都挂在下面。</p></div><a class="btn primary" href="#new">＋ 上传新内容</a></div>
+  <div class="toolbar"><div class="seg">${[['all','全部'],['cn','发国内'],['os','发海外'],['osonly','仅海外']].map(([k,l])=>`<button class="${libFilter===k?'on':''}" data-lib="${k}">${l}</button>`).join('')}</div><span class="sample-note">示例数据</span></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>视频</th><th>类型</th><th>画幅</th><th>主题</th><th>区域</th><th>各平台</th><th>状态</th></tr></thead>
+    <tbody>${list.map(i=>{const [t,c]=ITEM_ST[i.status];return `<tr data-open="${i.id}">
+      <td><b style="font-weight:500">${esc(i.title)}</b><div class="mono" style="font-size:12px;color:var(--muted)">${i.date} · ${i.dur}</div></td>
+      <td>${TYPES[i.type]}</td><td>${i.orient==='h'?'横屏':'竖屏'}</td><td>${esc(i.topic)}</td><td>${regionChips(i.regions)}</td>
+      <td><div class="ptags">${Object.entries(i.jobs).filter(([p,s])=>s!=='off').map(([p,s])=>`<span class="ptag ${s==='blocked'?'blocked':''}" title="${ST[s][0]}"><span class="dot ${ST[s][1]==='acc'?'acc':ST[s][1]}"></span>${P[p].name}</span>`).join('')}</div></td>
+      <td>${chip(t,c)}</td></tr>`}).join('')}</tbody>
+  </table></div>`;
+}
+
+/* ---------- 审核队列 ---------- */
+function vReview(){
+  const list=items.filter(i=>i.status==='review');
+  return `
+  <div class="head"><div><h1>审核</h1><p>所有生成好、等你过目的内容。逐条点开看，确认后一键批准。</p></div></div>
+  ${list.length?`<div class="grid g2">${list.map(i=>{
+    const jobs=Object.entries(i.jobs).filter(([p,s])=>s==='review');
+    const blocked=Object.entries(i.jobs).filter(([p,s])=>s==='blocked');
+    return `<section class="panel"><div style="display:flex;gap:14px">
+      <div class="thumb">${i.dur}</div>
+      <div style="min-width:0;flex:1"><b style="font-size:15px">${esc(i.title)}</b>
+      <div style="font-size:12px;color:var(--muted);margin:2px 0 8px">${TYPES[i.type]} · ${esc(i.topic)} · ${i.date}</div>${regionChips(i.regions)}</div></div>
+      <div style="margin:14px 0 6px;font-size:13px">将发布到 ${jobs.length} 个平台</div>
+      <div class="chips">${jobs.map(([p])=>chip(P[p].name,P[p].region)).join('')}</div>
+      ${blocked.length?`<div style="margin-top:8px;font-size:12px;color:var(--bad)">已拦截：${blocked.map(([p])=>P[p].name).join('、')}</div>`:''}
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end"><button class="btn" data-open="${i.id}">逐项查看</button><button class="btn primary" data-approve="${i.id}">一键批准</button></div>
+    </section>`}).join('')}</div>`:`<section class="panel" style="text-align:center;padding:40px"><b>都审完了</b><p style="color:var(--muted)">新视频处理完会出现在这里。</p><a class="btn primary" href="#new">上传新视频</a></section>`}`;
+}
+
+/* ---------- 详情 ---------- */
+const TRANSCRIPT={
+ 1:[['00:00','大家好，我是时予清。今天给大家完整演示一遍，我怎么用 Claude 搭一个自动发布的工作流。'],['00:12','先说结论：一条视频拍完，剩下的转文字、写文章、做播客、填各平台文案，全部可以交给 AI。'],['00:31','我们先打开 Claude，新建一个项目，把这三个模板放进去。'],['01:05','第一个模板是公众号长文。你看这里，我规定了标题、导语、三个小标题和一句金句。'],['02:40','然后是关键的一步：把原始素材直接丢进去，它自动剪掉停顿和口误，再配好字幕。'],['04:12','你会发现它会自动把口语里的“然后”“就是”去掉，整理成书面语。'],['07:30','接下来我们看播客这一块……'],['12:48','很多人问我，AI 会不会写得很空。我的经验是：模板越具体，它写得越像你。'],['23:50','好，今天就到这里。模板我放在简介里了，大家可以直接拿去用。']],
+ 3:[['00:00','今天聊一个很多人好奇、但不太敢问的话题：<mark>烧纸</mark>到底烧给谁？'],['00:18','在<mark>法界</mark>的规矩里，烧什么、写什么名字、在哪里烧，都是有讲究的。'],['02:05','我先讲一个真实的案例。'],['06:40','很多人以为<mark>烧纸</mark>只是给过世的亲人，其实还有一部分是给<mark>冤亲债主</mark>的。'],['11:22','这就涉及到<mark>超度</mark>的问题……'],['21:10','下期我们讲供灯。']],
+};
+const COPY={
+ 1:{
+  bili:{title:'【AI 实操】用 Claude 搭一个视频一键分发工作流｜公众号、播客、多平台文案全自动',desc:'一条视频拍完，转文字、写长文、做播客、填平台文案，全部交给 AI。\n\n00:00 为什么要搭这个工作流\n01:05 公众号长文模板\n02:40 粗剪也交给 AI\n07:30 播客版怎么做\n12:48 让 AI 写得像你：模板越具体越好',tags:'AI工具, Claude, 自媒体, 效率工具, 工作流, 知识分享',limit:80},
+  sph:{title:'一条视频，AI 帮我自动变成公众号文章和播客',desc:'完整演示：用 Claude 搭一个自媒体分发工作流 #AI工具 #自媒体',tags:'',limit:30},
+  yt:{title:'用 Claude 搭建自媒体自动发布工作流（完整实操）',desc:'一条视频，自动生成公众号长文、播客和多平台文案。\n\n章节\n00:00 为什么要搭\n01:05 长文模板\n02:40 AI 自动粗剪\n07:30 播客版\n12:48 模板越具体越像你',tags:'Claude, AI 工具, 自媒体, 工作流, 华人, 中文教程',limit:100},
+  gzh:null},
+ 3:{yt:{title:'烧纸到底烧给谁？法界里你不知道的规矩',desc:'烧什么、写什么名字、在哪里烧，都有讲究。\n\n00:00 开场\n02:05 真实案例\n06:40 不只是烧给亲人\n11:22 超度\n21:10 下期预告',tags:'烧纸, 法界, 修行, 民俗, 华人',limit:100}},
+};
+function vDetail(){
+  const i=items.find(x=>x.id===current)||items[0];
+  const flagged=i.jobs.bili==='blocked';
+  const hasArticle=i.jobs.gzh&&i.jobs.gzh!=='off'&&i.jobs.gzh!=='blocked';
+  const audioOn=['xyz','xmly'].some(p=>i.jobs[p]&&!['off','blocked'].includes(i.jobs[p]));
+  const tabs=[['article','公众号长文',hasArticle?'':'不发'],['podcast','播客版',audioOn?'':'不发'],['copy','各平台文案',''],['cover','封面',''],['transcript','转录稿',flagged?'4 处标记':'']];
+  let body='';
+  if(tab==='transcript'){
+    const tr=TRANSCRIPT[i.id];
+    body=tr?`${flagged?`<div class="notice bad" style="margin-bottom:12px"><span>⛔</span><div><b>发现 4 类敏感词</b><p>这条只发海外，不影响发布。如果以后想剪一个国内版，可以从这些时间点下手。</p></div></div>`:''}<div class="transcript">${tr.map(([t,s])=>`<div><span class="mono">${t}</span><span>${s}</span></div>`).join('')}</div><p class="hint" style="font-size:12px;color:var(--muted)">来自清清粗剪时的语音识别，可直接改错字，改动会同步到长文和文案。</p>`:`<p style="color:var(--muted)">示例只为第 1、3 条准备了转录稿。</p>`;
+  }else if(tab==='article'){
+    body=!hasArticle?`<div class="notice ${flagged?'bad':'warn'}"><span>${flagged?'⛔':'—'}</span><div><b>${flagged?'公众号属于国内平台，已按合规规则跳过':'这条不生成公众号长文'}</b><p>${flagged?'海外的文字版（比如 Substack、Medium 的中文版）以后再加。':'竖屏短视频和 Vlog 默认不出长文，可以在上传时手动打开。'}</p></div></div>`
+    :`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap"><span style="font-size:13px;color:var(--muted)">模板：公众号长文 · 录屏教学 <span class="tpl-tag">v3</span> · 约 2,400 字</span><div style="display:flex;gap:6px"><button class="btn sm" data-toast="已重新生成（示例）">重新生成</button><button class="btn sm" data-toast="已复制排版，可直接粘贴进公众号编辑器">复制排版</button></div></div>
+    <article class="article">
+      <h3>一条视频，怎么让 AI 自动变成文章、播客和多平台文案</h3>
+      <div class="lead">拍完视频之后，最耗时间的往往不是剪辑，是后面那一堆“搬运”：转文字、写文章、做音频、每个平台填一遍标题简介。这篇把我现在的做法完整写出来。</div>
+      <h4>先说结论</h4>
+      <p>一条视频拍完，剩下的转文字、写文章、做播客、填各平台文案，都可以交给 AI。我要做的只有两件事：录，和最后看一眼。</p>
+      <div class="shot">录屏截图 · 01:05 · Claude 项目里的三个模板</div>
+      <h4>第一步：给每种内容一个固定模板</h4>
+      <p>我给公众号长文定了一个固定结构：标题、导语、三个小标题、一句金句、结尾引导。模板越具体，AI 写出来越像你，而不是像一篇“AI 文章”。</p>
+      <blockquote>模板越具体，它写得越像你。</blockquote>
+      <h4>第二步：粗剪也交给 AI</h4>
+      <p>原始素材直接丢进去，AI 按逐字时间戳找出停顿、口头禅和说错重来的地方，自动剪掉，再加上字幕。我只在最后听一遍。</p>
+      <div class="shot">录屏截图 · 02:40 · 粗剪前后对比</div>
+      <div class="foot">完整视频在 B站、视频号搜索「时予清」。<br>模板我放在评论区置顶，可以直接拿去用。</div>
+    </article>`;
+  }else if(tab==='podcast'){
+    const bars=Array.from({length:120},(_,k)=>`<i style="height:${18+Math.abs(Math.sin(k*1.7)*38+Math.cos(k*.37)*16)}%"></i>`).join('');
+    body=audioOn||i.id===1?`${!audioOn?`<div class="notice warn" style="margin-bottom:12px"><span>—</span><div><b>录屏教学默认不发播客</b><p>这一集大部分在演示操作，只听声音可能跟不上。需要的话可以手动打开。</p></div><button class="btn sm" data-toast="已打开播客版（示例）" style="margin-left:auto">仍然发布</button></div>`:''}
+      <section class="panel"><h2>播客音频 <small>${i.dur} · -16 LUFS · 已加片头片尾</small></h2>
+      <div class="wave">${bars}</div>
+      <div class="chips">${chip('▶ 试听','acc')} ${chip('小宇宙 · RSS','cn')} ${chip('喜马拉雅 · RSS','cn')}</div></section>
+      <section class="panel" style="margin-top:12px"><h2>节目说明 <small>模板：播客节目说明 v2</small></h2>
+      <div class="cfield"><div class="val">${i.id===1?'一条视频拍完，怎么让 AI 自动变成文章、播客和多平台文案？这一期完整讲我的做法。\n\n00:00 为什么要搭这个工作流\n01:05 给每种内容一个模板\n02:40 粗剪也交给 AI\n12:48 让 AI 写得像你\n\n视频版：B站、视频号搜索「时予清」':'很多人觉得拒绝别人很难，其实难的不是开口，而是开口之后的那份愧疚。\n\n00:00 不好意思拒绝的三种来源\n05:20 为什么越讨好越累\n11:40 一句话练习'}</div></div></section>`
+    :`<div class="notice ${flagged?'bad':'warn'}"><span>${flagged?'⛔':'—'}</span><div><b>${flagged?'小宇宙、喜马拉雅属于国内平台，已跳过':'这条不生成播客'}</b><p>${flagged?'海外播客（Apple Podcasts、Spotify，用单独的 RSS）还没决定做不做，在「平台与规则」里可以打开。':'竖屏短视频和 Vlog 默认不出播客。'}</p></div></div>`;
+  }else if(tab==='copy'){
+    const c=COPY[i.id];
+    const plats=Object.entries(i.jobs).filter(([p,s])=>!['off','blocked'].includes(s)&&P[p].kind==='视频');
+    body=c?`<div class="grid">${plats.filter(([p])=>c[p]).map(([p])=>{const x=c[p];return `<div class="copycard"><header><b>${P[p].name}</b><span>${chip(METHOD[P[p].method],P[p].region)}</span></header>
+      <div class="cfield"><div class="lab"><span>标题</span><span class="mono">${[...x.title].length} / ${x.limit}</span></div><div class="val">${esc(x.title)}</div></div>
+      <div class="cfield"><div class="lab"><span>简介${p==='yt'||p==='bili'?' · 含章节':''}</span></div><div class="val">${esc(x.desc)}</div></div>
+      ${x.tags?`<div class="cfield"><div class="lab"><span>标签</span></div><div class="val">${esc(x.tags)}</div></div>`:''}
+      <div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn sm" data-toast="已重新生成（示例）">重新生成</button><button class="btn sm" data-toast="已复制">复制</button></div></div>`}).join('')}</div>`
+      :`<p style="color:var(--muted)">示例只为第 1、3 条准备了文案。</p>`;
+  }else if(tab==='cover'){
+    const bg=['linear-gradient(160deg,#2b5a52,#16303a)','linear-gradient(160deg,#4a3a6a,#1c2440)','linear-gradient(160deg,#6a4a2a,#2a1c14)'];
+    const caps=['04:12 · 正面看镜头，表情最好','12:48 · 手势 + 金句时刻','02:40 · 录屏画面 + 人像小窗'];
+    body=`<div class="covers">${bg.map((b,k)=>`<button class="cover ${coverPick===k?'on':''}" data-cover="${k}"><div class="img" style="background:${b}">${k===2?'AI 自动发布<br>完整实操':'一条视频<br>AI 自动变 5 份'}</div><span class="cap">${caps[k]}</span></button>`).join('')}</div>
+    <p style="font-size:12px;color:var(--muted);margin-top:10px">横屏封面用于 B站、YouTube、视频号；竖屏版本会按同样的画面自动裁成 3:4 给小红书。</p>`;
+  }
+  const reviewJobs=Object.entries(i.jobs).filter(([p,s])=>s==='review');
+  return `
+  <div class="head"><div><a href="#library" class="btn ghost sm" style="padding-left:0">← 内容库</a><h1 style="margin-top:4px">${esc(i.title)}</h1><p>${TYPES[i.type]} · ${esc(i.topic)} · ${i.date}</p></div><div class="chips">${regionChips(i.regions)} ${orientChip(i.orient)}</div></div>
+  <div class="grid g-detail">
+    <aside style="display:flex;flex-direction:column;gap:16px">
+      <section class="panel">
+        <div class="poster ${i.orient==='v'?'v':''}"><span class="ttl">${esc(i.title)}</span><span class="play">▶</span><span class="tc">${i.dur}</span></div>
+        <dl class="kv"><dt>源文件</dt><dd class="mono" style="font-size:12px;word-break:break-all">2026-${i.date}_${i.id}.mp4</dd><dt>粗剪</dt><dd>清清自动 · 删 142 处</dd><dt>字幕</dt><dd>${TRANSCRIPT[i.id]?.length?'312 句':'—'}</dd><dt>处理</dt><dd>${i.status==='gen'?'生成中…':'全部完成'}</dd></dl>
+      </section>
+      <section class="panel">
+        <h2>发布去向</h2>
+        <div class="row-list">${Object.entries(i.jobs).filter(([p,s])=>s!=='off').map(([p,s])=>`<div><div class="t"><b>${P[p].name}</b><span>${METHOD[P[p].method]}</span></div>${stChip(s)}</div>`).join('')}</div>
+      </section>
+      <section class="panel">
+        <h2>国内合规</h2>
+        ${flagged?`<div class="notice bad"><span>⛔</span><div><b>已拦截国内 5 个平台</b><p>主题「${esc(i.topic)}」只发海外；字幕里有烧纸、法界、冤亲债主、超度。</p></div></div>`
+        :i.regions.includes('cn')?`<div class="notice ok"><span>✓</span><div><b>通过</b><p>字幕和生成的文字都没有发现敏感词。</p></div></div>`:`<div class="notice warn"><span>—</span><div><b>仅海外，未做国内检查</b></div></div>`}
+      </section>
+    </aside>
+    <section style="min-width:0">
+      <div class="tabs">${tabs.map(([k,l,b])=>`<button class="${tab===k?'on':''}" data-tab="${k}">${l}${b?` <span class="chip ${b==='4 处标记'?'bad':''}">${b}</span>`:''}</button>`).join('')}</div>
+      ${body}
+    </section>
+  </div>
+  ${reviewJobs.length?`<div class="approvebar"><div><b>批准后发布到 ${reviewJobs.length} 个平台</b><div style="font-size:12px;color:var(--muted)">${reviewJobs.map(([p])=>P[p].name).join('、')}</div></div><button class="btn primary" data-approve="${i.id}">一键批准</button></div>`:''}`;
+}
+
+/* ---------- 发布中心 ---------- */
+function vPublish(){
+  const jobs=allJobs().filter(j=>!['off','blocked','review','gen'].includes(j.s));
+  const order={fail:0,confirm:1,uploading:2,queued:3,done:4};
+  jobs.sort((a,b)=>order[a.s]-order[b.s]);
+  const action=j=>({fail:`<a class="btn sm" href="#accounts">重新登录</a>`,confirm:`<button class="btn sm primary" data-confirm="${j.item.id}:${j.p}">${j.p==='gzh'?'去手机上发布':'打开并点发布'}</button>`,uploading:`<span class="prog"><i style="width:62%"></i></span>`,queued:`<span style="font-size:12px;color:var(--muted)">今晚 20:00</span>`,done:`<span class="mono" style="font-size:12px;color:var(--muted)">查看 ↗</span>`}[j.s]);
+  const week=[['周一 23',[['cn','饭局上领导敬酒','抖音 · 小红书 · 视频号']]],['周二 24',[]],['周三 25',[['os','妄念与止念','YouTube'],['cn','不好意思拒绝别人','B站 · 小宇宙']]],['周四 26',[['cn','不好意思拒绝别人','视频号 · 公众号'],['os','不好意思拒绝别人','YouTube']]],['周五 27',[['cn','AI 自动发布工作流','B站 · 视频号 · 公众号'],['os','AI 自动发布工作流','YouTube']]],['周六 28',[['os','烧纸到底烧给谁','YouTube']]],['周日 29',[['cn','AI 一分钟：语音写周报','抖音 · 小红书'],['os','AI 一分钟','Shorts']]]];
+  return `
+  <div class="head"><div><h1>发布中心</h1><p>批准之后的每一个平台任务。自动的不用管，标黄的要你点一下。</p></div></div>
+  <section style="margin-bottom:18px">
+    <div class="cal">${week.map(([d,evs],k)=>`<div class="day ${k===3?'today':''}"><header><span>${d}</span>${k===3?'<span style="color:var(--accent)">今天</span>':''}</header>${evs.map(([r,t,p])=>`<div class="ev ${r}"><b>${t}</b><span>${p}</span></div>`).join('')}</div>`).join('')}</div>
+  </section>
+  <div class="tablewrap"><table>
+    <thead><tr><th>平台</th><th>视频</th><th>方式</th><th>状态</th><th></th></tr></thead>
+    <tbody>${jobs.map(j=>`<tr data-open="${j.item.id}"><td><b style="font-weight:500">${P[j.p].name}</b> ${chip(P[j.p].region==='cn'?'国内':'海外',P[j.p].region)}</td><td>${esc(j.item.title)}</td><td style="font-size:13px;color:var(--muted)">${METHOD[P[j.p].method]}</td><td>${stChip(j.s)}</td><td style="text-align:right" data-stop>${action(j)}</td></tr>`).join('')}</tbody>
+  </table></div>
+  <p style="font-size:12px;color:var(--muted);margin-top:10px">「打开并点发布」：清清在你电脑上打开已登录的浏览器，视频、标题、简介、封面都已填好，你看一眼点发布。跑稳以后可以改成全自动。</p>`;
+}
+
+/* ---------- 模板 ---------- */
+const TPL={
+ 'gzh-talk':{g:'公众号',n:'长文 · 口播',v:'v3',body:`# {{标题}}
+
+> {{导语：一两句话说清这篇解决什么问题}}
+
+## {{小标题 1}}
+{{把口语改成书面语，去掉“然后、就是、对吧”等口头禅}}
+{{保留时予清的语气：直接、具体、有例子}}
+
+## {{小标题 2}}
+...
+
+## {{小标题 3}}
+...
+
+> {{金句：从原话里挑一句，不要编}}
+
+---
+完整视频在 B站、视频号搜索「时予清」。
+{{结尾引导：留言话题 / 下期预告}}`},
+ 'gzh-screen':{g:'公众号',n:'长文 · 录屏教学',v:'v3',body:`# {{标题}}
+
+> {{导语}}
+
+## 先说结论
+{{一段话}}
+
+[截图 {{关键时间点 1}}]
+
+## 第一步：{{步骤名}}
+{{操作说明，配截图}}
+
+## 第二步：{{步骤名}}
+...
+
+> {{金句}}
+
+---
+{{资料下载 / 模板领取方式}}`},
+ 'pod':{g:'播客',n:'节目说明',v:'v2',body:`{{一句话简介：这一期解决什么问题}}
+
+{{章节时间轴，每段一行：00:00 标题}}
+
+视频版：B站、视频号搜索「时予清」`},
+ 'bili':{g:'视频文案',n:'B站',v:'v4',body:`标题（≤80 字）：【{{栏目}}】{{主标题}}｜{{副标题}}
+简介：{{两句话介绍}}
+
+{{章节时间轴}}
+
+标签（≤10 个）：{{标签}}
+分区：知识 / {{子分区}}`},
+ 'dy':{g:'视频文案',n:'抖音 / 小红书',v:'v2',body:`标题（≤30 字）：{{钩子式标题}}
+正文：{{一句话 + 2~3 个话题标签}}
+小红书额外：封面大字 {{≤10 字}}`},
+ 'yt':{g:'视频文案',n:'YouTube（华人）',v:'v2',body:`Title（≤100 字）：{{中文标题}}
+Description：
+{{两三句简介}}
+
+章节
+{{时间轴}}
+
+Tags：{{中文标签}}, 华人, 中文`},
+};
+function vTemplates(){
+  const t=TPL[tplPick]; let lastG='';
+  return `
+  <div class="head"><div><h1>模板</h1><p>每类成品一个模板，生成时按它来写。改了会存成新版本，旧内容不受影响。</p></div></div>
+  <div class="grid" style="grid-template-columns:minmax(0,240px) minmax(0,1fr)">
+    <section class="panel tpl-list" style="padding:8px">${Object.entries(TPL).map(([k,x])=>{const g=x.g!==lastG?`<div class="grp">${x.g}</div>`:'';lastG=x.g;return g+`<button class="${tplPick===k?'on':''}" data-tpl="${k}"><span>${x.n}</span><span class="mono" style="font-size:11px">${x.v}</span></button>`}).join('')}</section>
+    <section class="panel" style="min-width:0">
+      <h2>${t.g} · ${t.n} <span style="display:flex;gap:6px"><button class="btn sm" data-toast="用第 1 条视频试跑（示例）">用一条视频试跑</button><button class="btn sm primary" data-toast="已保存为新版本（示例）">保存为新版本</button></span></h2>
+      <textarea class="code" id="tpl-body" spellcheck="false">${esc(t.body)}</textarea>
+      <div style="margin-top:12px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">可用变量</div><div class="vars">${['{{标题}}','{{导语}}','{{字幕全文}}','{{章节时间轴}}','{{关键时间点}}','{{主题}}','{{视频链接}}'].map(v=>`<code>${v}</code>`).join('')}</div></div>
+    </section>
+  </div>`;
+}
+
+/* ---------- 平台与规则 ---------- */
+function vAccounts(){
+  const acct=[
+    ['bili','已登录','ok','上次检查 10 分钟前'],['sph','登录已过期','bad','重新扫码后自动重试 1 个任务'],['dy','已登录','ok','上次检查 10 分钟前'],['xhs','已登录','ok','上次检查 10 分钟前'],
+    ['gzh','待确认接口权限','warn','个人订阅号：先在后台查「接口权限」里有没有草稿箱；没有就用「复制排版」'],['xyz','RSS 已订阅','ok','国内节目源'],['xmly','RSS 已订阅','ok','国内节目源'],
+    ['zhihu','已登录','ok','文章 + 想法'],['xhsn','已登录','ok','与小红书视频同一账号'],['wb','已登录','ok','上次检查 10 分钟前'],['ytc','已授权','ok','社区帖接口不开放，用浏览器发'],['yt','已授权','ok','YouTube 官方接口'],['yts','已授权','ok','与 YouTube 同一授权'],['pod','未开启','','海外节目源，以后再定'],
+  ];
+  return `
+  <div class="head"><div><h1>平台与规则</h1><p>每个平台怎么连、发什么，以及国内合规词库。</p></div></div>
+  <div class="grid g3" style="margin-bottom:16px">${acct.map(([k,s,c,d])=>`<section class="panel acct"><header><b>${P[k].name}</b>${chip(P[k].region==='cn'?'国内':'海外',P[k].region)}</header>
+    <p>${METHOD[P[k].method]}</p><div>${chip(s,c)}</div><p style="font-size:12px">${d}</p>
+    ${c==='bad'?'<button class="btn sm primary" data-toast="已打开扫码登录（示例）">扫码登录</button>':''}</section>`).join('')}</div>
+  <div class="grid g2">
+    <section class="panel">
+      <h2>国内合规词库 <small>命中后不发国内</small></h2>
+      <div class="wordchips">${WORDS.map((w,k)=>`<span class="chip bad">${esc(w)}<button data-delword="${k}" aria-label="删除 ${esc(w)}">×</button></span>`).join('')}</div>
+      <form class="inline" id="wordform"><input id="wordinput" placeholder="加一个词，比如：因果" aria-label="新增敏感词"><button class="btn" type="submit">添加</button></form>
+      <p style="font-size:12px;color:var(--muted);margin:10px 0 0">另外两条规则：主题选了「修行」「玄学·法界」直接只发海外；生成后的长文和文案会再查一遍。</p>
+    </section>
+    <section class="panel">
+      <h2>自动选平台的规则</h2>
+      <div class="row-list" style="font-size:13px">
+        <div><div class="t"><b>横屏</b><span>B站、视频号、YouTube + 公众号、小宇宙、喜马拉雅</span></div></div>
+        <div><div class="t"><b>竖屏</b><span>抖音、小红书、视频号、YouTube Shorts</span></div></div>
+        <div><div class="t"><b>录屏教学</b><span>默认不发播客</span></div></div>
+        <div><div class="t"><b>Vlog</b><span>只发视频</span></div></div>
+      </div>
+      <h2 style="margin-top:16px">播客节目源</h2>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px">国内（小宇宙、喜马拉雅订阅这个地址）</div>
+      <div class="url">https://media.example.cn/podcast/shiyuqing-cn.xml</div>
+      <div style="font-size:12px;color:var(--muted);margin:10px 0 4px">海外（以后开）</div>
+      <div class="url" style="opacity:.5">https://media.example.com/podcast/shiyuqing-global.xml</div>
+    </section>
+  </div>`;
+}
+
+/* ---------- 弹窗 ---------- */
+function approveModal(id){
+  const i=items.find(x=>x.id===id);
+  const jobs=Object.entries(i.jobs).filter(([p,s])=>s==='review');
+  $('#layer').innerHTML=`<div class="scrim" data-close><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mt">
+    <h3 id="mt">批准「${esc(i.title)}」</h3><p style="color:var(--muted);margin:0 0 12px">会生成 ${jobs.length} 个发布任务：</p>
+    <div class="row-list">${jobs.map(([p])=>`<div><div class="t"><b>${P[p].name}</b><span>${METHOD[P[p].method]}</span></div>${P[p].method==='browser'||P[p].method==='draft'?chip('最后由你点','warn'):chip('自动','ok')}</div>`).join('')}</div>
+    <div class="field" style="margin:14px 0 0"><label for="when">发布时间</label><select id="when" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--surface)"><option>今晚 20:00（推荐，最近一周你的观众最活跃）</option><option>马上发布</option><option>明天 12:00</option></select></div>
+    <div class="actions"><button class="btn" data-close>再看看</button><button class="btn primary" data-doapprove="${id}">批准并排期</button></div></div></div>`;
+}
+
+/* ---------- 路由与事件 ---------- */
+applySample(0);
+const R={dashboard:vDashboard,new:vNew,library:vLibrary,review:vReview,detail:vDetail,publish:vPublish,templates:vTemplates,accounts:vAccounts};
+function render(){
+  let v=location.hash.slice(1); if(!R[v]) v='dashboard';
+  renderNav(v); $('#main').innerHTML=R[v]();
+}
+function go(v){ if(location.hash==='#'+v) render(); else location.hash=v; window.scrollTo(0,0); }
+window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0)});
+
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button,[data-open],[data-close]'); if(!t) return;
+  const d=t.dataset;
+  if(e.target.closest('[data-stop]') && !t.matches('button')) return;
+  if(d.open && !t.matches('[data-stop] *')){current=+d.open;tab=items.find(x=>x.id===current).jobs.gzh&&!['off','blocked'].includes(items.find(x=>x.id===current).jobs.gzh)?'article':'copy';go('detail');return}
+  if(d.tab){tab=d.tab;render();return}
+  if(d.cover){coverPick=+d.cover;render();return}
+  if(d.lib){libFilter=d.lib;render();return}
+  if(d.tpl){tplPick=d.tpl;render();return}
+  if(d.toast){toast(d.toast);return}
+  if(d.approve){approveModal(+d.approve);return}
+  if('close' in d && (e.target===t || t.matches('button'))){$('#layer').innerHTML='';return}
+  if(d.doapprove){const i=items.find(x=>x.id===+d.doapprove);let n=0;Object.keys(i.jobs).forEach(p=>{if(i.jobs[p]==='review'){i.jobs[p]='queued';n++}});i.status='publishing';$('#layer').innerHTML='';toast(`已批准，${n} 个发布任务已排期`);render();return}
+  if(d.confirm){const [id,p]=d.confirm.split(':');const i=items.find(x=>x.id===+id);i.jobs[p]='done';if(Object.values(i.jobs).every(s=>['done','off','blocked'].includes(s)))i.status='done';toast(`${P[p].name} 已发布（示例）`);render();return}
+  if(d.delword){WORDS.splice(+d.delword,1);render();return}
+  // 上传页
+  if(d.sample){runProc(+d.sample);return}
+  if(d.level){draft.level=d.level;render();return}
+  if(d.broll){draft.brollSrc=d.broll;render();return}
+  if('cuts' in d){draft.showCuts=!draft.showCuts;render();return}
+  if(d.restore){const i=+d.restore;draft.restored.has(i)?draft.restored.delete(i):draft.restored.add(i);render();return}
+  if(d.title){draft.title=d.title;draft.edited.add('title');render();return}
+  if(d.type){draft.type=d.type;draft.plats=null;draft.edited.add('type');render();return}
+  if(d.topic){draft.topic=d.topic;draft.edited.add('topic');render();return}
+  if(d.region){const r=d.region;const k=draft.regions.indexOf(r);if(k>=0)draft.regions.splice(k,1);else draft.regions.push(r);draft.edited.add('regions');render();return}
+  if(d.plat){const s=draftPlats();s.has(d.plat)?s.delete(d.plat):s.add(d.plat);draft.edited.add('plats');render();return}
+  if('reset' in d){applySample(draft.sample);render();toast('已恢复 AI 预填');return}
+  if('start' in d){
+    const flagged=draftFlag();const s=draftPlats();const jobs={};
+    availKeys().forEach(p=>{if(P[p].tbd)return;if(P[p].region==='cn'&&(flagged||!draft.regions.includes('cn'))){if(flagged&&s.has(p))jobs[p]='blocked';return}if(P[p].region==='os'&&!draft.regions.includes('os'))return;if(s.has(p))jobs[p]='gen'});
+    const regions=flagged?['os']:draft.regions.slice();
+    const id=Math.max(...items.map(i=>i.id))+1;
+    items.unshift({id,title:draft.title||'未命名',type:draft.type,orient:draft.orient,dur:draft.kind==='text'?SAMPLES[draft.sample].size:fmt(draftFinal()),topic:draft.topic,regions,status:'gen',date:'11-26',jobs});
+    toast('已开始生成，大约 3 分钟后可以审核');go('library');return}
+});
+document.addEventListener('submit',e=>{if(e.target.id==='wordform'){e.preventDefault();const v=$('#wordinput').value.trim();if(v&&!WORDS.includes(v)){WORDS.push(v);render();toast(`已加入词库：${v}`)}}});
+document.addEventListener('input',e=>{if(e.target.id==='draft-title'){draft.title=e.target.value;draft.edited.add('title')}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#layer').innerHTML=''});
+render();
+</script>
