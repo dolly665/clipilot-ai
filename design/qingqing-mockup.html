@@ -285,6 +285,7 @@ const P={
   yts:{name:'YouTube Shorts',region:'os',kind:'视频',orient:['v'],method:'api'},
   pod:{name:'海外播客',region:'os',kind:'播客',orient:['h'],method:'rss',tbd:true},
   zhihu:{name:'知乎',region:'cn',kind:'长文',orient:['h','v'],method:'browser'},
+  gzhp:{name:'公众号贴图',region:'cn',kind:'图文',orient:['h','v'],method:'draft'},
   xhsn:{name:'小红书图文',region:'cn',kind:'图文',orient:['h','v'],method:'browser'},
   wb:{name:'微博',region:'cn',kind:'图文',orient:['h','v'],method:'browser'},
   ytc:{name:'YouTube 社区帖',region:'os',kind:'图文',orient:['h','v'],method:'browser'},
@@ -316,7 +317,7 @@ let items=[
  {id:8,title:'关系里的边界感：怎么拒绝才不伤人',type:'audio',orient:'h',dur:'33:05',topic:'心理学',regions:['cn','os'],status:'review',date:'11-26',
   jobs:{xyz:'review',xmly:'review',bili:'review',sph:'review',yt:'review',gzh:'review'}},
  {id:9,title:'我为什么不再讨好任何人',type:'text',orient:'h',dur:'3,240 字',topic:'人情世故',regions:['cn','os'],status:'done',date:'11-24',
-  jobs:{gzh:'done',zhihu:'done',xhsn:'done',wb:'done',ytc:'done'}},
+  jobs:{gzh:'done',zhihu:'done',gzhp:'done',xhsn:'done',wb:'done',ytc:'done'}},
  {id:7,title:'京都三日',type:'vlog',orient:'h',dur:'9:48',topic:'生活',regions:['cn','os'],status:'publishing',date:'11-21',
   jobs:{bili:'done',sph:'fail',yt:'done'}},
 ];
@@ -440,7 +441,7 @@ const PROC={
  audio:['上传音频','语音识别（逐字时间戳）','去停顿、口误和重复','按内容配 B roll 画面','合成横屏视频 + 字幕','判断主题，选平台和标题','国内合规检查'],
  text:['读取文本','排版成公众号长文','拆成图文短帖','判断主题，选平台和标题','国内合规检查'],
 };
-const DEFAULTS={video:{h:['bili','sph','gzh','xyz','xmly','yt'],v:['dy','xhs','sph','yts']},audio:['xyz','xmly','bili','sph','yt','gzh'],text:['gzh','zhihu','xhsn','wb','ytc']};
+const DEFAULTS={video:{h:['bili','sph','gzh','xyz','xmly','yt'],v:['dy','xhs','sph','yts']},audio:['xyz','xmly','bili','sph','yt','gzh'],text:['gzh','zhihu','gzhp','xhsn','wb','ytc']};
 const draft={sample:0,proc:-1,timer:null,kind:'video',orient:'h',type:'talk',topic:'心理学',regions:['cn','os'],plats:null,title:'',edited:new Set(),level:'std',restored:new Set(),showCuts:false,brollSrc:'mix'};
 const fmt=s=>{s=Math.round(s);return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
 function applySample(k){
@@ -453,7 +454,7 @@ function runProc(k){
 }
 function draftFlag(){return TOPICS.find(t=>t.k===draft.topic).r==='os'}
 function availKeys(){
-  if(draft.kind==='text') return ['gzh','zhihu','xhsn','wb','ytc'];
+  if(draft.kind==='text') return ['gzh','zhihu','gzhp','xhsn','wb','ytc'];
   if(draft.kind==='audio') return ['xyz','xmly','pod','bili','sph','yt','gzh','zhihu'];
   return Object.keys(P).filter(k=>P[k].orient.includes(draft.orient)&&P[k].kind!=='图文'&&(k!=='zhihu'||draft.orient==='h'));
 }
@@ -514,6 +515,7 @@ function textPanel(s){
     <div class="drop" style="margin-bottom:14px"><div class="thumb">${s.size}</div><div style="min-width:0;flex:1"><b style="word-break:break-all">${esc(s.file)}</b><div style="font-size:12px;color:var(--muted)">原文不改，只排版、加小标题和金句</div></div><button class="btn sm" data-toast="打开长文预览（示例）">看长文</button></div>
     <div class="grid g2" style="gap:10px">
       <div class="copycard"><header><b>知乎</b>${chip('国内','cn')}</header><div class="cfield"><div class="val">发完整文章（专栏），标题改成问题式：「为什么越讨好别人，关系反而越差？」同时发一条想法，摘一段金句引到文章。</div></div><span style="font-size:12px;color:var(--muted)">文章 3,240 字 · 想法 1 条 · 3 个话题</span></div>
+      <div class="copycard"><header><b>公众号贴图</b>${chip('国内','cn')}</header><div class="cover"><div class="img" style="aspect-ratio:3/4;background:linear-gradient(160deg,#4a3a6a,#1c2440)">不讨好<br>才是对关系最大的尊重</div></div><div class="val" style="font-size:12px;background:var(--surface-2);border-radius:6px;padding:8px">4 张图 · 短文 300 字 · 末尾引到长文</div></div>
       <div class="copycard"><header><b>小红书图文</b>${chip('国内','cn')}</header><div class="cover"><div class="img" style="aspect-ratio:3/4;background:linear-gradient(160deg,#2b5a52,#16303a)">讨好了十年<br>我学会这三件事</div></div><div class="val" style="font-size:12px;background:var(--surface-2);border-radius:6px;padding:8px">6 张卡片 · 正文 420 字 · 5 个话题</div></div>
       <div class="copycard"><header><b>微博</b>${chip('国内','cn')}</header><div class="cfield"><div class="val">讨好别人的时候，我们其实是在交换一种安全感。后来我发现，不讨好，反而是对关系最大的尊重。全文在公众号「时予清」。</div></div><span class="mono" style="font-size:12px;color:var(--muted)">88 / 2000</span></div>
       <div class="copycard"><header><b>YouTube 社区帖</b>${chip('海外','os')}</header><div class="cfield"><div class="val">新写了一篇：我为什么不再讨好任何人。你有没有一段时间，总是怕别人不高兴？评论区聊聊。</div></div><span style="font-size:12px;color:var(--muted)">附投票：你更怕哪种？</span></div>
@@ -547,7 +549,7 @@ function vNew(){
   const after={
     video:[['播客版','抽音轨、降噪、响度统一到 -16 LUFS、加片头片尾'],['公众号长文','按长文模板改写，录屏类自动配截图'],['各平台文案','标题、简介、标签、章节，按各平台字数限制'],['封面候选 3 张','挑表情和构图最好的帧，叠上标题']],
     audio:[['播客版','降噪、响度统一、加片头片尾，直接用原音频'],['视频文案和封面','按各平台字数限制，封面用你的照片 + 标题'],['公众号长文','把讲的内容整理成文章']],
-    text:[['公众号长文','排版、小标题、金句、配图位'],['知乎','完整文章 + 一条想法，标题改成问题式'],['短帖','小红书图文卡片、微博、YouTube 社区帖，各自改写长度和语气']],
+    text:[['公众号长文','排版、小标题、金句、配图位'],['知乎','完整文章 + 一条想法，标题改成问题式'],['短帖','公众号贴图、小红书图文卡片、微博、YouTube 社区帖，各自改写长度和语气']],
   }[s.kind];
   return head+`
   <div class="grid g-side">
@@ -584,7 +586,7 @@ function vNew(){
         <div class="row-list" style="font-size:13px">
           <div><div class="t"><b>视频</b><span>粗剪 + 字幕 → 视频平台，再派生播客和长文</span></div>${s.kind==='video'?chip('当前','acc'):''}</div>
           <div><div class="t"><b>音频</b><span>去口误 → 播客平台；配上 B roll 合成视频 → 视频平台；再派生长文</span></div>${s.kind==='audio'?chip('当前','acc'):''}</div>
-          <div><div class="t"><b>长文本</b><span>排版 → 公众号、知乎；拆成短帖 → 小红书图文、微博、YouTube 社区帖</span></div>${s.kind==='text'?chip('当前','acc'):''}</div>
+          <div><div class="t"><b>长文本</b><span>排版 → 公众号、知乎；拆成短帖 → 公众号贴图、小红书图文、微博、YouTube 社区帖</span></div>${s.kind==='text'?chip('当前','acc'):''}</div>
         </div>
       </section>
       <section class="panel">
@@ -825,7 +827,7 @@ function vAccounts(){
   const acct=[
     ['bili','已登录','ok','上次检查 10 分钟前'],['sph','登录已过期','bad','重新扫码后自动重试 1 个任务'],['dy','已登录','ok','上次检查 10 分钟前'],['xhs','已登录','ok','上次检查 10 分钟前'],
     ['gzh','待确认接口权限','warn','个人订阅号：先在后台查「接口权限」里有没有草稿箱；没有就用「复制排版」'],['xyz','RSS 已订阅','ok','国内节目源'],['xmly','RSS 已订阅','ok','国内节目源'],
-    ['zhihu','已登录','ok','文章 + 想法'],['xhsn','已登录','ok','与小红书视频同一账号'],['wb','已登录','ok','上次检查 10 分钟前'],['ytc','已授权','ok','社区帖接口不开放，用浏览器发'],['yt','已授权','ok','YouTube 官方接口'],['yts','已授权','ok','与 YouTube 同一授权'],['pod','未开启','','海外节目源，以后再定'],
+    ['zhihu','已登录','ok','文章 + 想法'],['gzhp','待确认接口权限','warn','和公众号长文同一账号，同样先查草稿箱接口'],['xhsn','已登录','ok','与小红书视频同一账号'],['wb','已登录','ok','上次检查 10 分钟前'],['ytc','已授权','ok','社区帖接口不开放，用浏览器发'],['yt','已授权','ok','YouTube 官方接口'],['yts','已授权','ok','与 YouTube 同一授权'],['pod','未开启','','海外节目源，以后再定'],
   ];
   return `
   <div class="head"><div><h1>平台与规则</h1><p>每个平台怎么连、发什么，以及国内合规词库。</p></div></div>
