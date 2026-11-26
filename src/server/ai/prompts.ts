@@ -3,14 +3,14 @@ import path from "node:path";
 
 export type Prompt = { name: string; version: number; system: string; user: string };
 
-const PROMPTS_DIR = path.resolve(process.cwd(), "prompts");
+const PROMPTS_DIR = path.resolve(/*turbopackIgnore: true*/ process.cwd(), "prompts");
 
 /** 列出某个任务的全部版本号（升序） */
 export function promptVersions(name: string, dir = PROMPTS_DIR): number[] {
   const d = path.join(dir, name);
-  if (!fs.existsSync(d)) return [];
+  if (!fs.existsSync(/*turbopackIgnore: true*/ d)) return [];
   return fs
-    .readdirSync(d)
+    .readdirSync(/*turbopackIgnore: true*/ d)
     .map((f) => /^v(\d+)\.md$/.exec(f)?.[1])
     .filter((v): v is string => v !== undefined)
     .map(Number)
@@ -27,7 +27,7 @@ export function loadPrompt(name: string, opts: { version?: number; dir?: string 
   if (version === undefined || !versions.includes(version)) {
     throw new Error(`找不到提示词 ${name} 的版本 ${version ?? "(无)"}`);
   }
-  const raw = fs.readFileSync(path.join(dir, name, `v${version}.md`), "utf8");
+  const raw = fs.readFileSync(/*turbopackIgnore: true*/ path.join(dir, name, `v${version}.md`), "utf8");
   const { system, user } = splitSections(raw, `${name}/v${version}`);
   return { name, version, system, user };
 }

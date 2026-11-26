@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Nav } from "@/components/Nav";
+import { prisma } from "@/server/app";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,7 +9,11 @@ export const metadata: Metadata = {
   description: "时予清自媒体全平台一键发布工作台",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+// 页面都读本机数据库，不做静态预渲染
+export const dynamic = "force-dynamic";
+
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const reviewCount = await prisma.source.count({ where: { status: "review" } });
   return (
     <html lang="zh-CN">
       <head>
@@ -26,7 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <b>清清</b>
               <span>时予清 · 发布工作台</span>
             </div>
-            <Nav />
+            <Nav reviewCount={reviewCount} />
             <div className="rail-foot">本机运行 · 第一阶段<br />不会自动发布到任何平台</div>
           </aside>
           <main>{children}</main>

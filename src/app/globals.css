@@ -26,3 +26,13 @@
   --font-body: var(--f-body);
   --font-mono: var(--f-mono);
 }
+
+/* 原型里的标签页是 <button>；真实页面用链接切换，样式保持一致 */
+.tabs a{padding:9px 14px;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;color:var(--muted);text-decoration:none}
+.tabs a.on{border-bottom-color:var(--accent);color:var(--fg);font-weight:500}
+
+/* 原型依赖浏览器默认的段落间距，Tailwind 的重置样式去掉了它 */
+.article p{margin:0 0 1em}
+.article p.lead{margin-bottom:6px}
+/* 底部固定的批准栏不要挡住最后一块内容 */
+main:has(.approvebar) .g-detail{padding-bottom:12px}
