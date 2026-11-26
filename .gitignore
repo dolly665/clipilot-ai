@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.env
+.env.local
+# 本机数据：素材、派生文件、SQLite
+data/
+*.db
+*.db-journal
+src/generated/

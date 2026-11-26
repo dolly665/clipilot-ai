@@ -1,0 +1,28 @@
+@import "tailwindcss";
+@import "./qingqing.css";
+
+/* 把原型的颜色/字体 token 暴露给 Tailwind：bg-surface、text-muted、text-cn、font-display …… */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-cn: var(--cn);
+  --color-cn-soft: var(--cn-soft);
+  --color-os: var(--os);
+  --color-os-soft: var(--os-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --font-display: var(--f-display);
+  --font-body: var(--f-body);
+  --font-mono: var(--f-mono);
+}

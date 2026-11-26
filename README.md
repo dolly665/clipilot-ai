@@ -1,108 +1,25 @@
-# Clipilot AI v1
+# 清清 · 时予清自媒体工作台
 
-> TikTok Creator Tool — AI-powered content package generation  
-> Single HTML file · Zero dependencies · No server · No build step
+把一条录好的视频、音频或长文本拖进来，清清负责转录、粗剪、预填、合规检查，并生成各平台的成品。你只做三步：**录制、拖进来、审核**。没有你的批准，任何内容都不会发布。
 
----
+- 需求、规则、平台、分阶段：见 [`HANDOFF.md`](HANDOFF.md)
+- UI 以可点击原型 [`design/qingqing-mockup.html`](design/qingqing-mockup.html) 为准
+- 旧版 Clipilot（TikTok 文案工具）在 [`legacy/`](legacy/)，只作参考
 
-## What It Does
+## 本机运行
 
-Drop a short video (MP4/MOV, ≤50MB) into the browser. Clipilot AI will:
+需要 Node 22+ 和 ffmpeg。
 
-1. **Extract frames** from the video and optionally transcribe audio
-2. **Understand the video** — detects style, mood, subjects, key moments
-3. **Generate a content package** in parallel:
-   - **3 candidate cover frames** (AI-picked, user selectable)
-   - **3–4 title options** (single-select, one recommended)
-   - **TikTok-style description** with hook + body + CTA
-   - **12–15 hashtags** in 3 tiers (broad / category / niche), multi-select
-4. **Live TikTok preview** — simulates how the post looks in the TikTok feed
-5. **One-click copy** to clipboard, ready to paste into TikTok
-
----
-
-## Quick Start
-
-1. Open `index.html` in Chrome or Edge
-2. Click ⚙ (top-right) → pick your AI provider → paste your API key → Save
-3. Drag a video onto the page
-4. Click **Analyze**
-5. Select your preferred cover / title / hashtags
-6. Click **Copy to Clipboard**
-
-That's it. No install, no server, no build.
-
----
-
-## Supported AI Providers
-
-| Provider | Key From | Model |
-|----------|----------|-------|
-| **Anthropic** | [console.anthropic.com](https://console.anthropic.com) | Claude Sonnet 4 / Opus 4 |
-| **OpenAI** | [platform.openai.com](https://platform.openai.com) | GPT-4o / GPT-4o Mini |
-| **Qwen (通义千问)** | [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com) | Qwen VL Max / VL Plus |
-
-Audio transcription (optional) uses OpenAI Whisper. Any provider can be used for the main analysis.
-
----
-
-## Architecture
-
-```
-index.html (~850 lines)
-
-Phase 1: Video Understanding (1 API call)
-  ├── extractFrames()       → 1 frame/sec, dual quality (analysis + HQ cover)
-  ├── transcribeAudio()     → browser AudioContext → WAV → Whisper API
-  └── AI analysis           → {detected_style, mood, subjects, key_moments}
-
-Phase 2: 4 Skills in Parallel (4 API calls)
-  ├── Cover Skill           → 3 best frame indices
-  ├── Title Skill           → 3-4 titles, 1 recommended
-  ├── Description Skill     → TikTok-style description
-  └── Hashtag Skill         → 12-15 tags in 3 tiers, 6-8 recommended
-
-UI
-  ├── Cover: 1 large + 3 thumbnail candidates
-  ├── TikTok phone preview (live updating)
-  ├── Multi-select hashtags
-  ├── Single-select titles
-  └── Editable description
+```bash
+npm install
+cp .env.example .env   # 按需填写 AI / 语音识别的提供方和密钥；默认 fake，不联网
+npm run dev            # http://localhost:3000
 ```
 
----
+## 检查
 
-## File Structure
-
-```
-clipilot-v1/
-├── index.html          ← The entire application
-├── cover-mockup.html   ← Standalone cover preview samples
-├── README.md           ← This file
+```bash
+npm run typecheck && npm run lint && npm test
 ```
 
----
-
-## API Cost (per analysis)
-
-| Provider | ~ Cost |
-|----------|--------|
-| Anthropic Claude Sonnet 4 | $0.03–0.05 |
-| OpenAI GPT-4o | $0.02–0.04 |
-| Qwen VL Max | ¥0.05–0.15 |
-
-Whisper transcription (optional): ~$0.003 for a 10-second video.
-
----
-
-## Browser Support
-
-Chrome, Edge, Firefox, Safari (latest versions).
-
----
-
-## Limits
-
-- Video ≤ 50MB, 3–60 seconds
-- No backend — API keys are in browser localStorage
-- Demo-grade, not production
+技术栈：Next.js（App Router）+ TypeScript + Tailwind + Prisma（SQLite）+ Vitest。
