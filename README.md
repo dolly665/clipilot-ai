@@ -13,6 +13,8 @@
 ```bash
 npm install
 cp .env.example .env   # 按需填写 AI / 语音识别的提供方和密钥；默认 fake，不联网
+npm run db:push        # 在 data/ 下建 SQLite 库
+npm run db:seed        # 写入默认敏感词库
 npm run dev            # http://localhost:3000
 ```
 

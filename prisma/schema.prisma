@@ -1,0 +1,123 @@
+// 清清的数据模型。状态、种类等取值以 src/domain/types.ts 为准（这里存字符串）。
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// 一条源素材。原始文件只读，所有剪辑都在派生副本上做。
+model Source {
+  id           String   @id @default(cuid())
+  kind         String // video | audio | text
+  orient       String   @default("h") // h | v
+  type         String   @default("talk") // ContentType
+  topic        String   @default("生活")
+  regions      Json     @default("[\"cn\",\"os\"]") // Region[]
+  platforms    Json     @default("[]") // 用户勾选的 PlatformKey[]
+  title        String   @default("")
+  titleAlts    Json     @default("[]") // 2 个备选标题
+  /// AI 预填的原始结果（含每项理由），用于「恢复 AI 预填」
+  prefill      Json?
+  /// 用户改过的字段名，例如 ["title","topic"]
+  edited       Json     @default("[]")
+  originalName String
+  filePath     String // DATA_DIR 下的相对路径
+  mimeType     String
+  sizeBytes    Int      @default(0)
+  durationSec  Float?
+  /// 文本素材的原文 / 音视频的转录全文（用于合规扫描和生成）
+  text         String?
+  /// 逐字时间戳 [{text,start,end}]
+  transcript   Json?
+  roughCutLevel String  @default("standard")
+  /// 粗剪结果：刀列表 + 用户恢复了哪几刀
+  roughCut     Json?
+  /// 原文 / 转录稿里的敏感词命中 SensitiveHit[]
+  hits         Json     @default("[]")
+  /// processing → prefilled → generating → review → approved；任何一步可 failed
+  status       String   @default("processing")
+  error        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  derivatives Derivative[]
+  jobs        PublishJob[]
+}
+
+/// 派生成品：粗剪成片、播客音频、长文、短帖、各平台文案、封面、字幕……
+model Derivative {
+  id              String   @id @default(cuid())
+  sourceId        String
+  source          Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  /// longform | zhihu_article | zhihu_idea | post | platform_copy | podcast_audio | roughcut_video | subtitle | cover
+  kind            String
+  /// 面向某个平台时填 PlatformKey
+  platform        String?
+  /// 文字类成品的内容（结构随 kind 而定）
+  content         Json?
+  /// 文件类成品在 DATA_DIR 下的相对路径
+  filePath        String?
+  templateKey     String?
+  templateVersion Int?
+  /// 生成后文字的敏感词命中 SensitiveHit[]
+  hits            Json     @default("[]")
+  status          String   @default("ready") // pending | ready | failed
+  error           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  jobs PublishJob[]
+
+  @@index([sourceId])
+}
+
+/// 可编辑模板，每次保存新增一个版本
+model Template {
+  id        String   @id @default(cuid())
+  key       String
+  version   Int
+  name      String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@unique([key, version])
+}
+
+/// 每条内容在每个平台一条发布任务
+model PublishJob {
+  id           String      @id @default(cuid())
+  sourceId     String
+  source       Source      @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  derivativeId String?
+  derivative   Derivative? @relation(fields: [derivativeId], references: [id], onDelete: SetNull)
+  platform     String
+  /// PublishStatus：pending_review → approved → queued → uploading → awaiting_click → published / failed / compliance_blocked
+  status       String      @default("pending_review")
+  blockReason  String?
+  scheduledAt  DateTime?
+  approvedAt   DateTime?
+  url          String?
+  error        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([sourceId, platform])
+}
+
+/// 可调整的规则（键值），例如主题 → 区域
+model Rule {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+/// 国内敏感词库（设置页可增删）
+model SensitiveWord {
+  id        String   @id @default(cuid())
+  word      String   @unique
+  createdAt DateTime @default(now())
+}
