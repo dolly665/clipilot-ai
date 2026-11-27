@@ -127,3 +127,26 @@ describe("润色入口", () => {
     expect(polishChunkChars({ POLISH_CHUNK_CHARS: "1200" })).toBe(1200);
   });
 });
+
+describe("模板页：在清清里改提示词", () => {
+  it("存成新版本放在数据目录，仓库文件不动；只能用已有变量", async () => {
+    const fs = await import("node:fs");
+    const os = await import("node:os");
+    const path = await import("node:path");
+    const { loadPrompt, promptVersionList, savePromptVersion } = await import("./prompts");
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "qq-repo-"));
+    const user = fs.mkdtempSync(path.join(os.tmpdir(), "qq-user-"));
+    fs.mkdirSync(path.join(repo, "t"));
+    fs.writeFileSync(path.join(repo, "t", "v1.md"), "## system\ns1\n\n## user\n写 {{title}}");
+    const o = { dir: repo, userDir: user };
+
+    expect(() => savePromptVersion("t", "## system\ns2\n\n## user\n写 {{nope}}", o)).toThrow("{{nope}}");
+    expect(() => savePromptVersion("t", "只有正文", o)).toThrow("## system");
+    expect(savePromptVersion("t", "## system\ns2\n\n## user\n写 {{title}}", o)).toBe(2);
+    expect(fs.existsSync(path.join(user, "t", "v2.md"))).toBe(true);
+    expect(fs.readdirSync(path.join(repo, "t"))).toEqual(["v1.md"]);
+    expect(loadPrompt("t", o)).toMatchObject({ version: 2, system: "s2" });
+    expect(promptVersionList("t", o)).toEqual([{ version: 1, source: "repo" }, { version: 2, source: "user" }]);
+    expect(() => savePromptVersion("t", "## system\ns2\n\n## user\n写 {{title}}", o)).toThrow("没有改动");
+  });
+});
