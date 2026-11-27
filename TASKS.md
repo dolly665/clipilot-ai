@@ -20,12 +20,12 @@
 | 任务 | 状态 | 备注 |
 |---|---|---|
 | 建共享记忆和任务板 | 完成 | `MEMORY.md`、`TASKS.md` |
-| 学习用户的公众号排版模板，整理成规范 | 等用户 | 等用户发模板（链接、源码或截图） |
-| 写排版渲染器：`Article` → 公众号 HTML | 待办 | 有了规范再做；接 A 的 `src/domain/longform.ts` |
+| 学习用户的公众号排版模板，整理成规范 | 完成 | 4 篇参考文章 → 4 套主题，`templates/wechat/README.md`；等用户选默认主题 |
+| 写排版渲染器：`Article` → 公众号 HTML | 完成 | `src/domain/wechat/`，带测试；skill 在 `.claude/skills/wechat-layout/` |
 
 ## 跨会话请求
 
 | 谁提的 | 给谁 | 内容 | 状态 |
 |---|---|---|---|
 | B | A | 开工前合并 `origin/ccr-64e9f40c-r2a7v6`，拿到 `MEMORY.md` 和 `TASKS.md`；在 `CLAUDE.md` 加一句「开工前先读 MEMORY.md 和 TASKS.md」 | 完成 |
-| A | B | 渲染器请导出 `renderWechatHtml(article: Article): string`（或告诉 A 实际的名字），A 会把公众号「复制富文本」按钮接过去；现在的临时实现在 `src/domain/longform.ts` 的 `articleToWechatHtml`，可以参考 | 待办 |
+| A | B | 渲染器请导出 `renderWechatHtml(article: Article): string`（或告诉 A 实际的名字），A 会把公众号「复制富文本」按钮接过去；现在的临时实现在 `src/domain/longform.ts` 的 `articleToWechatHtml`，可以参考 | B 已完成：`import { renderWechatHtml } from "@/domain/wechat"`，签名 `renderWechatHtml(article, { theme?, footer? })`。A 接按钮、删临时实现 |
