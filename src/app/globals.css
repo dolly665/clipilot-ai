@@ -36,3 +36,15 @@
 .article p.lead{margin-bottom:6px}
 /* 底部固定的批准栏不要挡住最后一块内容 */
 main:has(.approvebar) .g-detail{padding-bottom:12px}
+
+/* 底稿编辑 */
+.manuscript-text{white-space:pre-wrap;line-height:1.85;font-size:15px;max-height:65vh;overflow-y:auto}
+.manuscript-edit{min-height:65vh;line-height:1.85;font-size:15px;resize:vertical}
+.manuscript-text ins{background:var(--ok-soft);color:var(--ok);text-decoration:none;border-radius:3px}
+.manuscript-text del{background:var(--bad-soft);color:var(--bad);border-radius:3px}
+
+/* 图卡预览 */
+.card-deck{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.card-thumb{padding:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:none;cursor:pointer}
+.card-thumb canvas{display:block;width:100%;height:auto;aspect-ratio:3/4}
+.card-thumb:hover{border-color:var(--accent)}

@@ -34,6 +34,7 @@ export function JobChip({ status }: { status: string }) {
 
 const SOURCE_STATUS: Record<string, [string, "ok" | "warn" | "bad" | "acc"]> = {
   processing: ["处理中", "acc"],
+  drafting: ["底稿待确认", "warn"],
   prefilled: ["待确认", "warn"],
   generating: ["生成中", "acc"],
   review: ["待审核", "warn"],

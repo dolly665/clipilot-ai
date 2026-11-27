@@ -10,10 +10,12 @@ import { readDraft, readHits, readPrefill, readRoughCut, readStrings, sourceDeci
 import { retryPrefill } from "../../actions";
 import { CutPanel } from "./CutPanel";
 import { DraftForm } from "./DraftForm";
+import { ManuscriptEditor } from "./ManuscriptEditor";
+import { charCount } from "@/domain/chunk";
 
 /** 处理步骤：[显示文字, 对应的 stage] */
 const STEPS: Record<string, [string, string][]> = {
-  text: [["读取文本", "read"], ["国内合规检查，判断主题、选平台和标题", "prefill"]],
+  text: [["判断是录音转写还是写好的文章", "detect"], ["整理底稿（理顺润色或原样保留）", "polish"], ["国内合规检查，判断主题、选平台和标题", "prefill"]],
   audio: [
     ["抽出音轨", "extract"],
     ["语音识别（逐字时间戳）", "asr"],
@@ -31,10 +33,34 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
 
   const head = <PageHead eyebrow="第 1 步" title="上传新内容" desc={s.originalName} />;
 
+  if (s.status === "drafting") {
+    const versions = await prisma.manuscript.findMany({ where: { sourceId: id }, orderBy: { version: "desc" } });
+    const latest = versions[0]!;
+    const words = (await prisma.sensitiveWord.findMany()).map((w) => w.word);
+    return (
+      <>
+        <PageHead eyebrow="第 1 步 · 底稿" title="确认底稿" desc={`${s.originalName} · 看一遍底稿，不对的地方直接改。`} />
+        <ManuscriptEditor
+          key={latest.version}
+          id={id}
+          original={s.text ?? ""}
+          body={latest.body}
+          version={latest.version}
+          mode={s.textMode === "layout" ? "layout" : "polish"}
+          reason={s.textModeReason}
+          modeEdited={s.textModeEdited}
+          warnings={readStrings(latest.warnings)}
+          versions={versions.map((v) => ({ version: v.version, origin: v.origin, createdAt: v.createdAt.toISOString(), chars: charCount(v.body) }))}
+          words={words}
+        />
+      </>
+    );
+  }
+
   if (s.status === "processing" || (s.status === "failed" && !readPrefill(s))) {
     const failed = s.status === "failed";
     const steps = STEPS[s.kind] ?? STEPS.text!;
-    const current = Math.max(0, steps.findIndex(([, st]) => st === (s.stage ?? (s.kind === "text" ? "prefill" : "extract"))));
+    const current = Math.max(0, steps.findIndex(([, st]) => st === (s.stage ?? (s.kind === "text" ? "detect" : "extract"))));
     return (
       <>
         {head}
@@ -67,6 +93,8 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
   }
 
   const prefill = readPrefill(s)!;
+  const manuscript = s.kind === "text" ? await prisma.manuscript.findFirst({ where: { sourceId: id }, orderBy: { version: "desc" } }) : null;
+  const shownText = manuscript?.body ?? s.text ?? "";
   const draft = readDraft(s);
   const words = (await prisma.sensitiveWord.findMany()).map((w) => w.word);
   const hits = readHits(s.hits);
@@ -87,8 +115,8 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
         available={availablePlatforms(s.kind as SourceKind, s.orient as Orient)}
         decisions={sourceDecisions(s)}
         failed={s.status === "failed" ? s.error : null}
-        excerpt={(s.text ?? "").slice(0, 400)}
-        excerptHits={scanSensitive((s.text ?? "").slice(0, 400), words)}
+        excerpt={shownText.slice(0, 400)}
+        excerptHits={scanSensitive(shownText.slice(0, 400), words)}
         size={s.sizeBytes}
       />
     </>

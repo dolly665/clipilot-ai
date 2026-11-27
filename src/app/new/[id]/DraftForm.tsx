@@ -84,7 +84,7 @@ export function DraftForm(p: Props) {
           </section>
         )}
         {p.kind === "text" && <section className="panel">
-          <h2>原文 <small>原文不改，只排版、加小标题和金句</small></h2>
+          <h2>底稿 <small>已确认，生成时只排版、加小标题和金句，不再改字</small></h2>
           <div className="drop">
             <div className="thumb">{(p.size / 1024).toFixed(1)} KB</div>
             <div style={{ minWidth: 0, fontSize: 13, whiteSpace: "pre-wrap", maxHeight: 140, overflow: "hidden" }}>

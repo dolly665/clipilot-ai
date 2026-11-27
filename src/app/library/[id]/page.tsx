@@ -2,13 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { ApproveButton } from "@/components/ApproveButton";
+import { CardDeck } from "@/components/CardDeck";
+import { RichCopyButton } from "@/components/RichCopyButton";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { CopyButton } from "@/components/CopyButton";
 import { RegenerateButton } from "@/components/RegenerateButton";
 import { Chip, Highlighted, JobChip, Notice, RegionChips, SourceStatusChip } from "@/components/ui";
 import { scanSensitive } from "@/domain/compliance";
 import { derivativeCopyText, type DerivativeContent } from "@/domain/derivatives";
-import type { Article } from "@/domain/longform";
+import { articleToMarkdown, articleToWechatHtml, type Article } from "@/domain/longform";
 import { isPlatformKey, METHOD_LABEL, PLATFORMS, type PlatformKey } from "@/domain/platforms";
 import { formatTime } from "@/domain/transcript";
 import { CONTENT_TYPES, ROUGH_CUT_LEVELS } from "@/domain/types";
@@ -16,8 +18,8 @@ import { prisma } from "@/server/app";
 import { cutStats } from "@/domain/roughcut";
 import { defaultScheduleTime, readDraft, readHits, readRoughCut } from "@/server/sources";
 
-type Tab = "podcast" | "article" | "zhihu" | "posts" | "original";
-const TEXT_TABS: [Tab, string][] = [["article", "公众号长文"], ["zhihu", "知乎"], ["posts", "短帖"], ["original", "原文"]];
+type Tab = "podcast" | "article" | "zhihu" | "posts" | "manuscript" | "original";
+const TEXT_TABS: [Tab, string][] = [["article", "公众号长文"], ["zhihu", "知乎"], ["posts", "短帖"], ["manuscript", "底稿"], ["original", "原文"]];
 const AUDIO_TABS: [Tab, string][] = [["podcast", "播客"], ["article", "公众号长文"], ["zhihu", "知乎"], ["original", "转录稿"]];
 
 export default async function SourceDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
@@ -37,6 +39,7 @@ export default async function SourceDetailPage({ params, searchParams }: { param
   const editable = s.status === "review";
 
   const ders = s.derivatives.map((d) => ({ ...d, c: d.content as unknown as DerivativeContent }));
+  const manuscript = s.kind === "text" ? await prisma.manuscript.findFirst({ where: { sourceId: id }, orderBy: { version: "desc" } }) : null;
   const derHitCount = ders.reduce((n, d) => n + readHits(d.hits).length, 0);
   const sourceHits = readHits(s.hits);
   const jobs = s.jobs.filter((j) => isPlatformKey(j.platform)).sort((a, b) => a.platform.localeCompare(b.platform));
@@ -90,7 +93,14 @@ export default async function SourceDetailPage({ params, searchParams }: { param
     const d = ders.find((x) => x.c.kind === "longform");
     body = d?.c.kind === "longform" && (
       <div className="grid" style={{ gap: 10 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>{meta(d)}{actions(d)}</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {meta(d)}
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            {actions(d)}
+            <RichCopyButton html={articleToWechatHtml(d.c.article)} text={articleToMarkdown(d.c.article)} />
+          </div>
+        </div>
+        <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>标题「{d.c.article.title}」单独填进公众号的标题栏；「复制富文本」复制的是正文，粘进编辑器格式不乱。</p>
         {article(d.c.article, d.c.article.title)}
       </div>
     );
@@ -126,18 +136,30 @@ export default async function SourceDetailPage({ params, searchParams }: { param
               {c.title && <div className="cfield"><div className="lab"><span>标题</span></div><div className="val">{hl(c.title)}</div></div>}
               <div className="cfield"><div className="lab"><span>正文</span><span className="mono">{[...c.text].length} 字</span></div><div className="val">{hl(c.text)}</div></div>
               {c.tags && c.tags.length > 0 && <div className="cfield"><div className="lab"><span>话题</span></div><div className="val">{c.tags.map((t) => `#${t}`).join(" ")}</div></div>}
+              {(pk === "xhsn" || pk === "gzhp") && c.cover && c.cards && c.cards.length > 0 && (
+                <div className="cfield">
+                  <div className="lab"><span>图卡</span></div>
+                  <CardDeck deck={{ cover: c.cover, cards: c.cards }} platform={pk} name={`${draft.title}-${PLATFORMS[pk].name}`} />
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>{meta(d)}{actions(d)}</div>
             </div>
           );
         })}
       </div>
     );
-  } else {
-    body = (
-      <div className="article" style={{ whiteSpace: "pre-wrap" }}>
-        <Highlighted text={s.text ?? ""} hits={sourceHits} />
+  } else if (tab === "manuscript") {
+    body = manuscript ? (
+      <div className="grid" style={{ gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>v{manuscript.version} · {manuscript.origin === "user" ? "你改过" : manuscript.origin === "ai" ? "AI 润色" : "原文"} · {s.textMode === "polish" ? "录音转写，已理顺润色" : "写好的文章，原样保留"}</span>
+          <CopyButton text={manuscript.body} />
+        </div>
+        <div className="article" style={{ whiteSpace: "pre-wrap" }}>{hl(manuscript.body)}</div>
       </div>
-    );
+    ) : <p style={{ color: "var(--muted)" }}>这条内容没有底稿。</p>;
+  } else {
+    body = <div className="article" style={{ whiteSpace: "pre-wrap" }}>{hl(s.text ?? "")}</div>;
   }
 
   return (
@@ -188,7 +210,7 @@ export default async function SourceDetailPage({ params, searchParams }: { param
             {blocked.length > 0 ? (
               <Notice tone="bad" icon="⛔" title={`已拦截国内 ${blocked.length} 个平台`}>
                 {blocked.some((j) => j.blockReason === "topic") && `主题「${draft.topic}」只发海外。`}
-                {sourceHits.length > 0 && `原文里有：${[...new Set(sourceHits.map((h) => h.word))].join("、")}。`}
+                {sourceHits.length > 0 && `${isAudio ? "转录稿" : "底稿"}里有：${[...new Set(sourceHits.map((h) => h.word))].join("、")}。`}
                 {derHitCount > 0 && `生成的文字里有 ${derHitCount} 处敏感词，已在各标签页标出。`}
               </Notice>
             ) : draft.regions.includes("cn") ? (

@@ -13,18 +13,19 @@ const FLOW: [string, "you" | "auto", string, string][] = [
 ];
 
 export default async function DashboardPage() {
-  const [review, prefilled, recent] = await Promise.all([
+  const [drafting, review, prefilled, recent] = await Promise.all([
+    prisma.source.findMany({ where: { status: "drafting" } }),
     prisma.source.findMany({ where: { status: "review" } }),
     prisma.source.findMany({ where: { status: "prefilled" } }),
     prisma.source.findMany({ orderBy: { createdAt: "desc" }, take: 6 }),
   ]);
-  const todo = [...prefilled.map((s) => ({ s, href: `/new/${s.id}`, what: "确认发布信息" })), ...review.map((s) => ({ s, href: `/library/${s.id}`, what: "审核成品" }))];
+  const todo = [...drafting.map((s) => ({ s, href: `/new/${s.id}`, what: "确认底稿" })), ...prefilled.map((s) => ({ s, href: `/new/${s.id}`, what: "确认发布信息" })), ...review.map((s) => ({ s, href: `/library/${s.id}`, what: "审核成品" }))];
   return (
     <>
       <PageHead
         eyebrow={new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" })}
         title="你好，时予清"
-        desc={`今天有 ${review.length} 条等你审核，${prefilled.length} 条等你确认发布信息。`}
+        desc={`今天有 ${drafting.length} 份底稿等你确认，${prefilled.length} 条等你确认发布信息，${review.length} 条等你审核。`}
         actions={<Link className="btn primary" href="/new">＋ 上传新内容</Link>}
       />
       <section className="panel" style={{ marginBottom: 16 }}>

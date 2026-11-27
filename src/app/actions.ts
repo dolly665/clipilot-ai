@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { RoughCutLevel } from "@/domain/types";
-import type { DraftFields } from "@/server/sources";
+import type { DraftFields, TextMode } from "@/server/sources";
 import { prisma, runInBackground, sources } from "@/server/app";
 
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
@@ -36,7 +36,7 @@ export async function uploadText(_: ActionResult, form: FormData): Promise<Actio
   } catch (e) {
     return { error: message(e) };
   }
-  runInBackground(`预填 ${id}`, () => sources.prefill(id));
+  runInBackground(`整理底稿 ${id}`, () => sources.processText(id));
   redirect(`/new/${id}`);
 }
 
@@ -44,6 +44,7 @@ export async function retryPrefill(id: string) {
   const s = await prisma.source.findUniqueOrThrow({ where: { id } });
   // 音频如果连识别都没完成，从头处理；否则只重跑预填
   if (s.kind === "audio" && !s.transcript) runInBackground(`处理音频 ${id}`, () => sources.processAudio(id));
+  else if (s.kind === "text" && !(await sources.latestManuscript(id))) runInBackground(`整理底稿 ${id}`, () => sources.processText(id));
   else runInBackground(`预填 ${id}`, () => sources.prefill(id));
   revalidatePath(`/new/${id}`);
 }
@@ -118,6 +119,51 @@ export async function toggleCut(id: string, cutId: string): Promise<ActionResult
     return { error: message(e) };
   }
   runInBackground(`渲染粗剪 ${id}`, () => sources.renderRoughCut(id));
+  revalidatePath(`/new/${id}`);
+  return {};
+}
+
+/** 切换处理方式（润色 / 只排版），或重新润色 */
+export async function redraft(id: string, mode: TextMode): Promise<ActionResult> {
+  try {
+    await sources.requestRedraft(id, mode);
+  } catch (e) {
+    return { error: message(e) };
+  }
+  runInBackground(`重新整理底稿 ${id}`, () => sources.runRedraft(id));
+  revalidatePath(`/new/${id}`);
+  return {};
+}
+
+export async function saveManuscript(id: string, body: string): Promise<ActionResult> {
+  try {
+    await sources.saveManuscript(id, body);
+  } catch (e) {
+    return { error: message(e) };
+  }
+  revalidatePath(`/new/${id}`);
+  return {};
+}
+
+export async function restoreManuscript(id: string, version: number): Promise<ActionResult> {
+  try {
+    await sources.restoreManuscript(id, version);
+  } catch (e) {
+    return { error: message(e) };
+  }
+  revalidatePath(`/new/${id}`);
+  return {};
+}
+
+/** 确认底稿（先保存未保存的修改），进入预填 */
+export async function confirmManuscript(id: string, body: string): Promise<ActionResult> {
+  try {
+    await sources.saveManuscript(id, body);
+    await sources.confirmManuscript(id);
+  } catch (e) {
+    return { error: message(e) };
+  }
+  runInBackground(`预填 ${id}`, () => sources.prefill(id));
   revalidatePath(`/new/${id}`);
   return {};
 }

@@ -30,7 +30,7 @@ export default async function LibraryPage() {
             <tbody>
               {list.map((s) => {
                 const d = readDraft(s);
-                const href = ["processing", "prefilled"].includes(s.status) ? `/new/${s.id}` : `/library/${s.id}`;
+                const href = ["processing", "drafting", "prefilled"].includes(s.status) ? `/new/${s.id}` : `/library/${s.id}`;
                 return (
                   <tr key={s.id}>
                     <td>
