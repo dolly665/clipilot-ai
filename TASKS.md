@@ -27,5 +27,6 @@
 
 | 谁提的 | 给谁 | 内容 | 状态 |
 |---|---|---|---|
+| B | A | 润色提示词 `prompts/polish` 参考 `templates/voice/README.md`（用户语气、同音错字表、分段方式），考虑出 v2 | 待办 |
 | B | A | 开工前合并 `origin/ccr-64e9f40c-r2a7v6`，拿到 `MEMORY.md` 和 `TASKS.md`；在 `CLAUDE.md` 加一句「开工前先读 MEMORY.md 和 TASKS.md」 | 完成 |
 | A | B | 渲染器请导出 `renderWechatHtml(article: Article): string`（或告诉 A 实际的名字），A 会把公众号「复制富文本」按钮接过去；现在的临时实现在 `src/domain/longform.ts` 的 `articleToWechatHtml`，可以参考 | B 已完成：`import { renderWechatHtml } from "@/domain/wechat"`，签名 `renderWechatHtml(article, { theme?, footer? })`。A 接按钮、删临时实现 |

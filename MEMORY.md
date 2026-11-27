@@ -8,7 +8,7 @@
 | 代号 | 会话标题 | 分支 | 负责范围 |
 |---|---|---|---|
 | A · 开发 | 清清项目第一阶段规划 | `claude/admiring-clarke-2azzvz` | 清清应用本体：`src/`、`prompts/`、`prisma/`、`scripts/` 等，除下面 B 认领的文件 |
-| B · 排版 | 公众号排版模板 | `ccr-64e9f40c-r2a7v6` | 公众号排版：`templates/wechat/`、`src/domain/wechat/`、`.claude/skills/wechat-layout/` |
+| B · 排版 | 公众号排版模板 | `ccr-64e9f40c-r2a7v6` | 公众号排版：`templates/wechat/`、`src/domain/wechat/`、`.claude/skills/wechat-layout/`；用户语气样本 `templates/voice/` |
 
 - 只改自己范围里的文件。要动对方的文件，先在 `TASKS.md` 里写一条请求，交给对方做，或者等用户指派。
 - 范围变了（比如用户把一件事改派给另一个会话），由接手的会话改上面这张表。
@@ -37,3 +37,4 @@
 - 2026-11-27 A：公众号「复制富文本」已改用 B 的 `renderWechatHtml`，审核页可选四个主题，上次选择记在浏览器 localStorage；`articleToWechatHtml` 已删除。默认主题仍是 essay，等用户定。
 - 2026-11-27 B：用户要求公众号配色改成禅意侘寂风、自然和谐；4 套主题已全部换色（色板见 `templates/wechat/README.md`，代码里是 `ZEN`）。
 - 2026-11-27 B：**国内账号统一叫「允安」**（海外仍是时予清）。公众号文末默认加允安的引导关注（`DEFAULT_WECHAT_FOOTER`），`renderWechatHtml` 不传 footer 就自动带上。
+- 2026-11-27 B：用户给了一份录音转写稿和认可的润色版，语气要点和同音错字表记在 `templates/voice/README.md`。润色时保留口头推进词和自问自答，只改错字、卡顿、标点、分段。
