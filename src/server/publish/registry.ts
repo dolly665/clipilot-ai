@@ -1,5 +1,5 @@
 import type { PublishConnector } from "./types";
-import { youtubeConnectors, youtubeStatus } from "./youtube";
+import { youtubeConnectors } from "./youtube";
 
 /**
  * 已接好自动发布的平台。写好一个连接器就在这里加一行（A、B 都可以改，只改自己那一行）。
