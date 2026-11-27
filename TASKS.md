@@ -31,7 +31,7 @@
 | 建共享记忆和任务板 | 完成 | `MEMORY.md`、`TASKS.md` |
 | 学习用户的公众号排版模板，整理成规范 | 完成 | 4 篇参考文章 → 4 套主题，`templates/wechat/README.md`；等用户选默认主题 |
 | 写排版渲染器：`Article` → 公众号 HTML | 完成 | `src/domain/wechat/`，带测试；skill 在 `.claude/skills/wechat-layout/` |
-| 改进润色（用户改派） | 进行中 | polish v4 已在 DeepSeek 上实测，比 v2 明显好；等用户看日常样本的效果 |
+| 改进润色（用户改派） | 进行中 | polish v6 + deepseek-reasoner；日常样本相似度 0.74（认可版 1.00）。等用户再给认可样本继续调 |
 | 接手文字线和发布流程（用户确认，原 C） | 完成 | 范围见 MEMORY.md 分工表 |
 | 用 DeepSeek 跑一遍「底稿 → 长文 / 知乎 / 短帖 / 图卡」 | 待办 | 从 A 转来；用 xiuxing、richang 两个样本 |
 | 发布流程（第二阶段）：公众号草稿箱接口、YouTube API、国内播客 RSS | 待办 | 公众号接口权限要先请用户截图确认；接口要固定 IP，只能在用户本机跑 |

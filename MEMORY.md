@@ -51,3 +51,4 @@
 - 2026-11-27 B：**文字处理统一用 DeepSeek**（用户原话「文字这块处理你以后都用deepseek就行」；之前本机用的是豆包）。配置：`AI_PROVIDER=openai`、`AI_MODEL=deepseek-chat`、`OPENAI_BASE_URL=https://api.deepseek.com/v1`。云端会话的 DeepSeek 密钥存在环境的网络密钥里，由代理注入，`OPENAI_API_KEY` 填占位符 `proxy-injected` 即可。
 - 2026-11-27 B：DeepSeek 润色实测（样本 xiuxing，和认可版对比）：v2 平均每段 82 字、相似度 0.74；v3 73 字、0.76；v4 48 字、0.82；v4 + 每块 800 字 45 字、0.83，而且「然后」减半（日常样本 29 → 14 处）。结论：用 v4，润色分块调小到 800 字左右。DeepSeek 偏保守，口头词仍比认可版多。
 - 2026-11-27 B：用户确认「文字输入和发布流程交给另一个 session」指的就是 B。原来的 C 行并入 B：B 负责文字线（底稿、润色、排版、图文成品）和发布流程；A 只做视频和设置页。
+- 2026-11-27 B：用户确认日常修行那版（带小标题的）是认可的润色，存为 `templates/voice/samples/richang.approved.txt`（去掉了小标题和末尾 AI 声明）。用这篇没进示例的样本检验：deepseek-chat 怎么写提示词都删得不够（相似度 0.69–0.71，篇幅 90%+，认可版 75%）；deepseek-reasoner + polish v6 到 0.74、篇幅 85%，「然后」「嘛」基本删光。结论：**润色用 `POLISH_MODEL=deepseek-reasoner`**，其他文字任务仍用 deepseek-chat。用户的风格比我们原先以为的删得更狠：嘛/呢/吧/然后几乎全删，「就是」「这个」留三分之一。
