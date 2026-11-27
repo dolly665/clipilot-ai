@@ -264,6 +264,11 @@ export async function publishYoutubeJob(db: PrismaClient, jobId: string, opts: {
 export const youtubeConnectors: PublishConnector[] = (["yt", "yts"] as const).map((platform) => ({
   platform,
   uploadEarly: true,
+  // 没配钥匙或没连接频道：不发，任务留在「已批准」等你手动发
+  ready: async () => {
+    const st = await youtubeStatus();
+    return st.configured && st.connected;
+  },
   async publish(db, jobId) {
     const r = await publishYoutubeJob(db, jobId);
     return { url: r.url, warnings: r.warnings };
