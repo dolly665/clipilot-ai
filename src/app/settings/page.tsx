@@ -5,6 +5,9 @@ import { TOPICS } from "@/domain/types";
 import { prisma } from "@/server/app";
 import { removeWord } from "./actions";
 import { WordForm } from "./WordForm";
+import { PhotoForm } from "./PhotoForm";
+import { audioBackground } from "@/server/storage";
+import fs from "node:fs";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +23,8 @@ const NOW: Partial<Record<PlatformKey, string>> = {
 
 export default async function SettingsPage() {
   const words = await prisma.sensitiveWord.findMany({ orderBy: { createdAt: "asc" } });
+  const bg = await audioBackground();
+  const bgStamp = bg ? Math.floor(fs.statSync(bg).mtimeMs) : 0;
   return (
     <>
       <PageHead title="平台与规则" desc="每个平台怎么发，以及国内合规词库。" />
@@ -48,12 +53,17 @@ export default async function SettingsPage() {
             <div><div className="t"><b>竖屏视频</b><span>抖音、小红书、视频号、YouTube Shorts</span></div></div>
             <div><div className="t"><b>录屏教学</b><span>默认不发播客</span></div></div>
             <div><div className="t"><b>Vlog</b><span>只发视频</span></div></div>
-            <div><div className="t"><b>音频</b><span>小宇宙、喜马拉雅 + 公众号长文</span></div></div>
+            <div><div className="t"><b>音频</b><span>小宇宙、喜马拉雅 + 公众号长文 + 配画面发 B站、视频号、YouTube</span></div></div>
             <div><div className="t"><b>长文本</b><span>公众号、知乎 + 公众号贴图、小红书图文、微博、YouTube 社区帖</span></div></div>
           </div>
           <p style={{ fontSize: 12, color: "var(--muted)", margin: "10px 0 0" }}>这里是默认勾选，每条内容在发布信息页都能改。</p>
         </section>
       </div>
+      <section className="panel" style={{ marginBottom: 16 }}>
+        <h2>音频配画面 <small>音频勾了视频平台时，画面 = 这张照片 + 声波 + 大字幕</small></h2>
+        <PhotoForm has={!!bg} stamp={bgStamp} />
+        <p style={{ fontSize: 12, color: "var(--muted)", margin: "10px 0 0" }}>建议横图，比如你的一张半身照或工作台。照片会裁成 16:9 并稍微压暗，让字幕看得清。</p>
+      </section>
       <h2 style={{ fontSize: 15, margin: "8px 0 10px" }}>平台</h2>
       <div className="grid g3">
         {PLATFORM_KEYS.map((k) => {

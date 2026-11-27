@@ -155,3 +155,24 @@ export async function makeTestVideo(out: string, seconds: number, size = "320x18
     "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", out,
   ]);
 }
+
+/**
+ * 音频配画面（最省事的版本）：一张照片（没有就用纯色）+ 声波 + 烧进画面的大字幕，横屏 1920×1080。
+ * 照片按画面裁满并略压暗，让字幕和声波看得清。
+ */
+export async function renderAudioVideo(audio: string, srt: string | null, out: string, opts: { photo?: string | null } = {}) {
+  await fs.mkdir(path.dirname(out), { recursive: true });
+  const bgInput = opts.photo ? ["-loop", "1", "-framerate", "25", "-i", path.resolve(opts.photo)] : ["-f", "lavfi", "-i", "color=c=0x4A453D:s=1920x1080:r=25"];
+  const style = [`FontName=${subtitleFont()}`, "FontSize=22", "Bold=1", "PrimaryColour=&H00FFFFFF", "OutlineColour=&H00000000", "BorderStyle=1", "Outline=1.4", "Shadow=0", "MarginV=34"].join(",");
+  const sub = srt ? `,subtitles=${path.basename(srt)}:charenc=UTF-8:force_style='${style}'` : "";
+  const graph = [
+    `[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,setsar=1${opts.photo ? ",eq=brightness=-0.12" : ""},format=yuv420p[bg]`,
+    "[1:a]showwaves=s=1200x160:mode=cline:rate=25:draw=full:scale=sqrt:colors=0xF2EDE4,format=rgba,colorchannelmixer=aa=0.8[w]",
+    `[bg][w]overlay=(W-w)/2:H*0.58:shortest=1${sub}[v]`,
+  ].join(";");
+  await run(
+    FFMPEG,
+    ["-y", "-v", "error", ...bgInput, "-i", path.resolve(audio), "-filter_complex", graph, "-map", "[v]", "-map", "1:a", "-shortest", "-r", "25", ...H264, path.resolve(out)],
+    { cwd: srt ? path.dirname(path.resolve(srt)) : undefined },
+  );
+}

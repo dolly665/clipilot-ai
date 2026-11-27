@@ -66,3 +66,22 @@ export async function removeSourceFiles(sourceId: string, root = dataDir()) {
     await fs.rm(abs, { recursive: true, force: true });
   }
 }
+
+/** 音频配画面用的背景照片：DATA_DIR/assets/audio-bg.<ext>，没有返回 null */
+export async function audioBackground(root = dataDir()): Promise<string | null> {
+  const dir = resolveData("assets", root);
+  const names = await fs.readdir(dir).catch(() => [] as string[]);
+  const f = names.find((n) => /^audio-bg\.(jpe?g|png|webp)$/i.test(n));
+  return f ? path.join(dir, f) : null;
+}
+
+/** 换背景照片：删掉旧的，写入新的 */
+export async function saveAudioBackground(data: Buffer, ext: string, root = dataDir()) {
+  if (!/^(jpe?g|png|webp)$/i.test(ext)) throw new Error("照片只支持 jpg、png、webp");
+  const old = await audioBackground(root);
+  if (old) await fs.rm(old, { force: true });
+  const abs = resolveData(`assets/audio-bg.${ext.toLowerCase()}`, root);
+  await fs.mkdir(path.dirname(abs), { recursive: true });
+  await fs.writeFile(abs, data);
+  return abs;
+}

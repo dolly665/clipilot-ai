@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/server/app";
 import { savePromptVersion } from "@/server/ai/prompts";
+import { saveAudioBackground } from "@/server/storage";
 
 export type FormResult = { error?: string; ok?: string };
 
@@ -34,4 +35,19 @@ export async function savePrompt(name: string, _: FormResult, form: FormData): P
   }
   revalidatePath("/templates");
   redirect(`/templates?t=${name}&saved=${v}`);
+}
+
+/** 换音频配画面用的背景照片 */
+export async function uploadAudioBackground(_: FormResult, form: FormData): Promise<FormResult> {
+  const file = form.get("photo");
+  if (!(file instanceof File) || file.size === 0) return { error: "请选一张照片" };
+  if (file.size > 20 * 1024 * 1024) return { error: "照片超过 20MB" };
+  const ext = file.name.split(".").pop() ?? "";
+  try {
+    await saveAudioBackground(Buffer.from(await file.arrayBuffer()), ext);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+  revalidatePath("/settings");
+  return { ok: "已换好，之后生成的音频视频都用这张" };
 }

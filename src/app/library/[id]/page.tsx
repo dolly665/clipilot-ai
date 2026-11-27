@@ -40,7 +40,9 @@ export default async function SourceDetailPage({ params, searchParams }: { param
   const isAudio = s.kind === "audio" || s.kind === "video";
   const TABS = s.kind === "video"
     ? VIDEO_TABS.filter(([k]) => !VIDEO_TAB_KIND[k] || s.derivatives.length === 0 || s.derivatives.some((d) => d.kind === VIDEO_TAB_KIND[k]))
-    : isAudio ? AUDIO_TABS : TEXT_TABS;
+    : s.kind === "audio"
+      ? [...(s.derivatives.some((d) => d.kind === "video") ? VIDEO_TABS.slice(0, 2) : []), ...AUDIO_TABS]
+      : TEXT_TABS;
   const tab: Tab = TABS.find(([k]) => k === sp.tab)?.[0] ?? TABS[0]![0];
   const draft = readDraft(s);
   const words = (await prisma.sensitiveWord.findMany()).map((w) => w.word);
@@ -91,13 +93,13 @@ export default async function SourceDetailPage({ params, searchParams }: { param
         {videos.map((d) => d.c.kind === "video" && (
           <div className="copycard" key={d.id}>
             <header>
-              <b>{d.c.variant === "burned" ? "成片 · 字幕烧进画面" : "成片 · 无字幕"}</b>
+              <b>{s.kind === "audio" ? "配画面的视频" : d.c.variant === "burned" ? "成片 · 字幕烧进画面" : "成片 · 无字幕"}</b>
               <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{formatTime(d.c.durationSec)}</span>
             </header>
             <video controls preload="metadata" style={{ width: "100%", maxHeight: 480, background: "#000", borderRadius: 8 }} src={`/api/derivatives/${d.id}/file`} />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                {d.c.variant === "burned" ? (d.c.orient === "v" ? "抖音、小红书、视频号、Shorts 用这个" : "视频号用这个") : d.c.orient === "h" ? "B站、YouTube 用这个，另外上传下面的字幕文件" : "原画面，备用"}
+                {s.kind === "audio" ? "照片 + 声波 + 字幕，B站、视频号、YouTube 都用这个" : d.c.variant === "burned" ? (d.c.orient === "v" ? "抖音、小红书、视频号、Shorts 用这个" : "视频号用这个") : d.c.orient === "h" ? "B站、YouTube 用这个，另外上传下面的字幕文件" : "原画面，备用"}
               </span>
               <a className="btn sm" href={`/api/derivatives/${d.id}/file?download=1`}>下载视频</a>
             </div>
