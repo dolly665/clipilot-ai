@@ -36,9 +36,14 @@ model Source {
   roughCutLevel String  @default("standard")
   /// 粗剪结果：刀列表 + 用户恢复了哪几刀
   roughCut     Json?
-  /// 原文 / 转录稿里的敏感词命中 SensitiveHit[]
+  /// 底稿（发布用文字）里的敏感词命中 SensitiveHit[]；底稿确认前是原文的命中
   hits         Json     @default("[]")
-  /// processing → prefilled → generating → review → approved；任何一步可 failed
+  /// 文本素材怎么处理：polish（录音转写，理顺润色）| layout（成稿，只排版）
+  textMode       String?
+  textModeReason String?
+  /// 用户是否手动切换过处理方式
+  textModeEdited Boolean @default(false)
+  /// processing → drafting（底稿待确认，仅文本）→ prefilled → generating → review → approved；任何一步可 failed
   status       String   @default("processing")
   /// 处理中的哪一步（给进度显示用）：extract | asr | cut | render | prefill
   stage        String?
@@ -48,6 +53,26 @@ model Source {
 
   derivatives Derivative[]
   jobs        PublishJob[]
+  manuscripts Manuscript[]
+}
+
+/// 底稿：从原文理顺润色（或原样排版）得到的发布用文字，每次修改存一个新版本
+model Manuscript {
+  id        String   @id @default(cuid())
+  sourceId  String
+  source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  version   Int
+  body      String
+  /// ai（AI 润色）| original（成稿原样）| user（你改过）
+  origin    String
+  /// 生成这一版用的提示词，例如 polish v1
+  templateKey     String?
+  templateVersion Int?
+  /// 润色时的提醒，例如某一段删减过多
+  warnings  Json     @default("[]")
+  createdAt DateTime @default(now())
+
+  @@unique([sourceId, version])
 }
 
 /// 派生成品：粗剪成片、播客音频、长文、短帖、各平台文案、封面、字幕……

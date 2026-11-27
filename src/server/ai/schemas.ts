@@ -24,9 +24,17 @@ export type LongformPlan = z.infer<typeof LongformPlanSchema>;
 export const ZhihuSchema = z.object({ question: z.string().min(1), idea: z.string().min(1) });
 export type Zhihu = z.infer<typeof ZhihuSchema>;
 
+const CardDeck = {
+  cover: z.object({ title: z.string().min(1), subtitle: z.string().default("") }).optional(),
+  cards: z.array(z.object({ title: z.string().min(1), body: z.string().min(1) })).max(9).optional(),
+};
+export type CardDeckData = { cover: { title: string; subtitle: string }; cards: { title: string; body: string }[] };
+
+export const TextKindSchema = z.object({ mode: z.enum(["polish", "layout"]), reason: z.string().default("") });
+
 export const ShortPostsSchema = z.object({
-  gzhp: z.object({ title: z.string(), text: z.string().min(1) }),
-  xhsn: z.object({ title: z.string(), text: z.string().min(1), tags: z.array(z.string()).default([]) }),
+  gzhp: z.object({ title: z.string(), text: z.string().min(1), ...CardDeck }),
+  xhsn: z.object({ title: z.string(), text: z.string().min(1), tags: z.array(z.string()).default([]), ...CardDeck }),
   wb: z.object({ text: z.string().min(1) }),
   ytc: z.object({ text: z.string().min(1) }),
 });

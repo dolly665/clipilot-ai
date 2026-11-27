@@ -9,7 +9,8 @@ export function createFakeProvider(): AiProvider {
     name: "fake",
     model: "fake",
     async complete(req: CompleteRequest) {
-      return JSON.stringify(fakeResult(req));
+      const r = fakeResult(req);
+      return typeof r === "string" ? r : JSON.stringify(r);
     },
   };
 }
@@ -67,12 +68,35 @@ function fakeResult({ task, user }: CompleteRequest): unknown {
       const title = /文章标题：(.*)/.exec(user)?.[1]?.trim() ?? "这件事";
       return { question: `如何看待「${clip(title, 20)}」？`, idea: `【假数据】${clip(between(user, "<<<原文", "原文>>>"), 200)}` };
     }
+    case "text-kind": {
+      const text = between(user, "<<<文字（只给开头部分）", "文字>>>");
+      const fillers = (text.match(/嗯|呃|那个|就是说|然后/g) ?? []).length;
+      const punct = (text.match(/[。！？，]/g) ?? []).length;
+      const spoken = fillers >= 2 || punct < [...text].length / 60;
+      return spoken
+        ? { mode: "polish", reason: `有 ${fillers} 处口头词，标点少（假数据）` }
+        : { mode: "layout", reason: "段落和标点规范，像写好的文章（假数据）" };
+    }
+    case "polish": {
+      // 假润色：去口头词、去紧挨着的重复、每三句分一段
+      const text = between(user, "<<<待理顺", "待理顺>>>")
+        .replace(/[嗯呃额]|那个|就是说/g, "")
+        .replace(/(.{2,4})\1/g, "$1")
+        .replace(/\s+/g, "");
+      const sentences = text.match(/[^。！？]+[。！？]?/g) ?? [text];
+      const paras: string[] = [];
+      for (let i = 0; i < sentences.length; i += 3) paras.push(sentences.slice(i, i + 3).join(""));
+      return paras.join("\n\n");
+    }
     case "short-posts": {
       const text = between(user, "<<<原文", "原文>>>");
       const title = /文章标题：(.*)/.exec(user)?.[1]?.trim() ?? "无题";
+      const sentences = (text.match(/[^。！？\n]+[。！？]?/g) ?? [text]).map((x) => x.trim()).filter(Boolean);
+      const cards = sentences.slice(0, 4).map((b, i) => ({ title: `第 ${i + 1} 点`, body: clip(b, 90) }));
+      const deck = { cover: { title: clip(title, 14), subtitle: "假数据生成的副标题" }, cards: cards.length ? cards : [{ title: "要点", body: "（空）" }] };
       return {
-        gzhp: { title: clip(title, 20), text: clip(text, 300) },
-        xhsn: { title: clip(title, 20), text: clip(text, 500), tags: ["时予清", "成长"] },
+        gzhp: { title: clip(title, 20), text: clip(text, 300), ...deck },
+        xhsn: { title: clip(title, 20), text: clip(text, 500), tags: ["时予清", "成长"], ...deck },
         wb: { text: clip(text, 140) },
         ytc: { text: clip(text, 300) },
       };

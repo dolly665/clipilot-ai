@@ -76,3 +76,24 @@ export async function runTask<S extends z.ZodType>(
   }
   throw new AiError(`任务 ${name} 两次输出都不符合格式：${lastError.slice(0, 300)}`);
 }
+
+/**
+ * 跑一个输出纯文字的任务（长文润色这类，放进 JSON 容易出转义问题）。
+ * 去掉模型偶尔包上的代码块；输出为空时重试一次。
+ */
+export async function runTextTask(
+  name: string,
+  vars: Record<string, string>,
+  opts: { provider?: AiProvider; maxTokens?: number } = {},
+): Promise<TaskResult<string>> {
+  const provider = opts.provider ?? defaultProvider();
+  const prompt = loadPrompt(name);
+  const system = render(prompt.system, vars);
+  const user = render(prompt.user, vars);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const raw = await provider.complete({ task: name, system, user, maxTokens: opts.maxTokens });
+    const text = raw.trim().replace(/^```[a-z]*\n?([\s\S]*?)\n?```$/i, "$1").trim();
+    if (text) return { data: text, prompt: { name, version: prompt.version }, provider: provider.name, model: provider.model };
+  }
+  throw new AiError(`任务 ${name} 两次都没有输出内容`);
+}

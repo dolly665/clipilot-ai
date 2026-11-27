@@ -6,7 +6,7 @@ export type DerivativeContent =
   | { kind: "longform"; article: Article }
   | { kind: "zhihu_article"; question: string; article: Article }
   | { kind: "zhihu_idea"; text: string }
-  | { kind: "post"; title?: string; text: string; tags?: string[] }
+  | { kind: "post"; title?: string; text: string; tags?: string[]; cover?: { title: string; subtitle: string }; cards?: { title: string; body: string }[] }
   | { kind: "podcast"; title: string; shownotes: string; durationSec: number };
 
 export type DerivativeKind = DerivativeContent["kind"];
@@ -42,7 +42,13 @@ export function derivativeText(c: DerivativeContent): string {
     case "zhihu_idea":
       return c.text;
     case "post":
-      return [c.title, c.text, c.tags?.map((t) => `#${t}`).join(" ")].filter(Boolean).join("\n\n");
+      return [
+        c.title,
+        c.text,
+        c.tags?.map((t) => `#${t}`).join(" "),
+        c.cover && `${c.cover.title}\n${c.cover.subtitle}`,
+        ...(c.cards ?? []).map((k) => `${k.title}\n${k.body}`),
+      ].filter(Boolean).join("\n\n");
     case "podcast":
       return `${c.title}\n\n${c.shownotes}`;
   }
@@ -55,6 +61,9 @@ export function derivativeCopyText(c: DerivativeContent): string {
       return articleToMarkdown(c.article);
     case "zhihu_article":
       return articleToMarkdown({ ...c.article, title: c.question });
+    case "post":
+      // 复制的是要贴进发布框的文字；图卡单独下载
+      return [c.title, c.text, c.tags?.map((t) => `#${t}`).join(" ")].filter(Boolean).join("\n\n");
     default:
       return derivativeText(c);
   }

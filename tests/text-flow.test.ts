@@ -46,7 +46,8 @@ describe("文本链路：上传 → 预填 → 生成 → 审核 → 批准", ()
 
     const ders = await db.prisma.derivative.findMany({ where: { sourceId: s.id } });
     expect(ders.map((x) => x.kind).sort()).toEqual(["longform", "post", "post", "post", "post", "zhihu_article", "zhihu_idea"].sort());
-    expect(ders.every((x) => x.templateKey && x.templateVersion === 1)).toBe(true);
+    expect(ders.every((x) => x.templateKey && (x.templateVersion ?? 0) >= 1)).toBe(true);
+    expect(ders.find((x) => x.platform === "xhsn")?.templateVersion).toBe(2);
 
     const jobs = await db.prisma.publishJob.findMany({ where: { sourceId: s.id } });
     expect(jobs).toHaveLength(6);

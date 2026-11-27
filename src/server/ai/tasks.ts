@@ -1,7 +1,8 @@
 import { assembleArticle, numberParagraphs, splitParagraphs, type Article } from "@/domain/longform";
 import { CONTENT_TYPES, TOPICS, type SourceKind, type Topic } from "@/domain/types";
-import { runTask, type AiProvider, type TaskResult } from "./index";
-import { LongformPlanSchema, ShortPostsSchema, ShownotesSchema, SpokenArticleSchema, UnderstandSchema, ZhihuSchema } from "./schemas";
+import { charCount, splitForPolish } from "@/domain/chunk";
+import { runTask, runTextTask, type AiProvider, type TaskResult } from "./index";
+import { LongformPlanSchema, ShortPostsSchema, ShownotesSchema, SpokenArticleSchema, TextKindSchema, UnderstandSchema, ZhihuSchema } from "./schemas";
 import { formatTime, type Transcript } from "@/domain/transcript";
 
 type Opts = { provider?: AiProvider };
@@ -67,4 +68,36 @@ export async function shownotes(input: { transcript: Transcript; title: string; 
     .filter(Boolean)
     .join("\n\n");
   return { ...r, data: { text, chapters } };
+}
+
+/** 判断文本是录音转写（要润色）还是成稿（只排版）。只看开头 3000 字。 */
+export function textKind(text: string, opts: Opts = {}) {
+  return runTask("text-kind", { text: [...text].slice(0, 3000).join("") }, TextKindSchema, { ...opts, maxTokens: 500 });
+}
+
+export type PolishResult = { text: string; warnings: string[]; prompt: { name: string; version: number } };
+
+/**
+ * 理顺润色：长文分块依次处理，每块带上前一块的结尾保持衔接。
+ * 每块对比字数：删得太多或加得太多都记一条提醒，让你对照原文检查。
+ */
+export async function polishText(text: string, opts: Opts = {}): Promise<PolishResult> {
+  const chunks = splitForPolish(text);
+  const out: string[] = [];
+  const warnings: string[] = [];
+  let prompt = { name: "polish", version: 0 };
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i]!;
+    const prev = out.at(-1);
+    const context = prev ? `上一部分（已理顺）结尾是：「${[...prev].slice(-120).join("")}」，接着往下理，不要重复它。` : "这是全文的开头。";
+    const r = await runTextTask("polish", { text: chunk, context }, { ...opts, maxTokens: 16000 });
+    prompt = r.prompt;
+    out.push(r.data);
+    const before = charCount(chunk);
+    const after = charCount(r.data);
+    const where = chunks.length > 1 ? `第 ${i + 1} 部分` : "全文";
+    if (before > 80 && after < before * 0.5) warnings.push(`${where}删减较多（${before} 字 → ${after} 字），请对照原文检查有没有漏掉内容`);
+    if (before > 80 && after > before * 1.3) warnings.push(`${where}比原文长不少（${before} 字 → ${after} 字），请检查有没有加进原文没有的内容`);
+  }
+  return { text: out.join("\n\n"), warnings, prompt };
 }

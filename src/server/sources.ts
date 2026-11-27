@@ -9,13 +9,14 @@ import { transcriptText, type Transcript } from "@/domain/transcript";
 import type { RoughCutLevel } from "@/domain/types";
 import type { AiProvider } from "./ai";
 import type { Understand } from "./ai/schemas";
-import { layoutLongform, shortPosts, shownotes, spokenArticle, understand, zhihu } from "./ai/tasks";
+import { layoutLongform, polishText, shortPosts, shownotes, spokenArticle, textKind, understand, zhihu } from "./ai/tasks";
 import { defaultAsr, type AsrProvider } from "./asr";
 import { dataDir } from "./env";
 import { extractSpeechAudio, probe, renderAudioCut } from "./media/ffmpeg";
 import { adoptOriginal, derivativePath, resolveData, saveOriginal, workPath } from "./storage";
 
-export type SourceStatus = "processing" | "prefilled" | "generating" | "review" | "approved" | "failed";
+export type SourceStatus = "processing" | "drafting" | "prefilled" | "generating" | "review" | "approved" | "failed";
+export type TextMode = "polish" | "layout";
 
 /** 发布信息里用户可以改的字段 */
 export type DraftFields = {
@@ -100,6 +101,16 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
     return db.source.findUniqueOrThrow({ where: { id } });
   }
 
+  async function latestManuscript(sourceId: string) {
+    return db.manuscript.findFirst({ where: { sourceId }, orderBy: { version: "desc" } });
+  }
+
+  /** 拿去预填、生成、合规扫描的文字：文本素材用最新底稿，音频用转录稿 */
+  async function publishText(s: Source): Promise<string> {
+    if (s.kind === "text") return (await latestManuscript(s.id))?.body ?? s.text ?? "";
+    return s.text ?? "";
+  }
+
   async function fail(id: string, e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
     await db.source.update({ where: { id }, data: { status: "failed", error: message } });
@@ -120,8 +131,9 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
   async function prefill(id: string) {
     try {
       const s = await get(id);
-      const hits = scanSensitive(s.text ?? "", await words());
-      const r = await understand({ kind: s.kind as SourceKind, text: s.text ?? "" }, ai);
+      const text = await publishText(s);
+      const hits = scanSensitive(text, await words());
+      const r = await understand({ kind: s.kind as SourceKind, text }, ai);
       const kind = s.kind as SourceKind;
       const type: ContentType = kind === "text" ? "text" : kind === "audio" ? "audio" : r.data.type;
       const p: Prefill = {
@@ -143,6 +155,7 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
           platforms: json(p.platforms),
           edited: json([]),
           status: "prefilled",
+          stage: null,
           error: null,
         },
       });
@@ -251,7 +264,7 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
       if (s.kind === "audio") return await generateAudio(id);
       if (s.kind !== "text") throw new Error("视频的生成在后续步骤接入");
       const d = readDraft(s);
-      const input = { text: s.text ?? "", title: d.title, topic: d.topic };
+      const input = { text: await publishText(s), title: d.title, topic: d.topic };
       const [lf, zh, sp] = await Promise.all([layoutLongform(input, ai), zhihu(input, ai), shortPosts(input, ai)]);
       const w = await words();
 
@@ -278,7 +291,7 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
     const s = await get(der.sourceId);
     if (s.status !== "review") throw new Error("只有待审核的内容可以重新生成");
     const d = readDraft(s);
-    const input = { text: s.text ?? "", title: d.title, topic: d.topic };
+    const input = { text: await publishText(s), title: d.title, topic: d.topic };
     const old = der.content as unknown as DerivativeContent;
     let content: DerivativeContent;
     let prompt: { name: string; version: number };
@@ -328,6 +341,107 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
     return r.count;
   }
 
+
+
+  // ───────────────────────── 文本底稿 ─────────────────────────
+
+  async function addManuscript(
+    sourceId: string,
+    body: string,
+    origin: "ai" | "original" | "user",
+    extra: { prompt?: { name: string; version: number }; warnings?: string[] } = {},
+  ) {
+    const last = await latestManuscript(sourceId);
+    const m = await db.manuscript.create({
+      data: {
+        sourceId,
+        version: (last?.version ?? 0) + 1,
+        body,
+        origin,
+        templateKey: extra.prompt?.name ?? null,
+        templateVersion: extra.prompt?.version ?? null,
+        warnings: json(extra.warnings ?? []),
+      },
+    });
+    await db.source.update({ where: { id: sourceId }, data: { hits: json(scanSensitive(body, await words())) } });
+    return m;
+  }
+
+  /** 按处理方式出一版底稿：润色或原样 */
+  async function draftWith(id: string, mode: TextMode) {
+    const s = await get(id);
+    const original = s.text ?? "";
+    await setStage(id, "polish");
+    if (mode === "polish") {
+      const r = await polishText(original, ai);
+      await addManuscript(id, r.text, "ai", { prompt: r.prompt, warnings: r.warnings });
+    } else {
+      await addManuscript(id, original, "original");
+    }
+  }
+
+  /** 文本处理：判断是转写稿还是成稿 → 出第一版底稿 → 等你确认 */
+  async function processText(id: string) {
+    try {
+      const s = await get(id);
+      await setStage(id, "detect");
+      const k = await textKind(s.text ?? "", ai);
+      await db.source.update({ where: { id }, data: { textMode: k.data.mode, textModeReason: k.data.reason, textModeEdited: false } });
+      await draftWith(id, k.data.mode);
+      return await db.source.update({ where: { id }, data: { status: "drafting", stage: null, error: null } });
+    } catch (e) {
+      await fail(id, e);
+      return get(id);
+    }
+  }
+
+  async function editableDraft(id: string) {
+    const s = await get(id);
+    if (s.kind !== "text" || s.status !== "drafting") throw new Error("只有待确认的底稿可以修改");
+    return s;
+  }
+
+  /** 切换处理方式（润色 ↔ 只排版），或在当前方式下重新润色；先标记为处理中，实际处理在后台跑 */
+  async function requestRedraft(id: string, mode: TextMode) {
+    const s = await editableDraft(id);
+    await db.source.update({
+      where: { id },
+      data: { status: "processing", stage: "polish", textMode: mode, textModeEdited: s.textModeEdited || mode !== s.textMode },
+    });
+  }
+  async function runRedraft(id: string) {
+    try {
+      const s = await get(id);
+      await draftWith(id, (s.textMode as TextMode) ?? "polish");
+      return await db.source.update({ where: { id }, data: { status: "drafting", stage: null, error: null } });
+    } catch (e) {
+      await fail(id, e);
+      return get(id);
+    }
+  }
+
+  /** 保存你手改的底稿（存成新版本） */
+  async function saveManuscript(id: string, body: string) {
+    await editableDraft(id);
+    const text = body.replace(/\r\n?/g, "\n").trim();
+    if (!text) throw new Error("底稿不能为空");
+    const last = await latestManuscript(id);
+    if (last?.body === text) return last;
+    return addManuscript(id, text, "user");
+  }
+
+  /** 回到某个旧版本（复制成一个新版本，历史不丢） */
+  async function restoreManuscript(id: string, version: number) {
+    await editableDraft(id);
+    const m = await db.manuscript.findUniqueOrThrow({ where: { sourceId_version: { sourceId: id, version } } });
+    return addManuscript(id, m.body, "user");
+  }
+
+  /** 确认底稿 → 进入预填（标题、主题、平台、合规） */
+  async function confirmManuscript(id: string) {
+    await editableDraft(id);
+    await db.source.update({ where: { id }, data: { status: "processing", stage: "prefill" } });
+  }
 
   // ───────────────────────── 音频 ─────────────────────────
 
@@ -485,6 +599,7 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
   return {
     createText, prefill, updateDraft, restorePrefill, startGenerate, generate, regenerate, approve, syncJobs,
     createMedia, processAudio, renderRoughCut, setCutLevel, toggleCut,
+    processText, requestRedraft, runRedraft, saveManuscript, restoreManuscript, confirmManuscript, latestManuscript,
   };
 }
 
