@@ -47,16 +47,30 @@ function draw(canvas: HTMLCanvasElement, img: HTMLImageElement, title: string, o
 }
 
 /** 封面：从成片里抽的几帧里挑一张，叠上标题，下载 PNG */
-export function CoverMaker({ derivativeId, frames, title: initial, orient, name }: { derivativeId: string; frames: number; title: string; orient: "h" | "v"; name: string }) {
+export function CoverMaker({ derivativeId, frames, title: initial, orient, name, saved: savedInitially, editable }: { derivativeId: string; frames: number; title: string; orient: "h" | "v"; name: string; saved?: boolean; editable?: boolean }) {
   const [pick, setPick] = useState(0);
   const [title, setTitle] = useState(initial);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const [saved, setSaved] = useState<"yes" | "no" | "saving" | string>(savedInitially ? "yes" : "no");
 
   useEffect(() => {
     const img = new Image();
-    img.onload = () => canvas.current && draw(canvas.current, img, title, orient);
+    img.onload = () => {
+      if (canvas.current) draw(canvas.current, img, title, orient);
+    };
     img.src = `/api/derivatives/${derivativeId}/frame/${pick}`;
   }, [derivativeId, pick, title, orient]);
+
+  /** 存到清清里，自动发布（比如 YouTube）时用这张当封面 */
+  const save = () => {
+    setSaved("saving");
+    canvas.current?.toBlob(async (b) => {
+      if (!b) return setSaved("没能生成图片");
+      const res = await fetch(`/api/derivatives/${derivativeId}/cover`, { method: "POST", body: b, headers: { "Content-Type": "image/jpeg" } });
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      setSaved(res.ok ? "yes" : j.error ?? "保存失败");
+    }, "image/jpeg", 0.9);
+  };
 
   const download = () => {
     canvas.current?.toBlob((b) => {
@@ -73,15 +87,21 @@ export function CoverMaker({ derivativeId, frames, title: initial, orient, name 
     <div className="grid" style={{ gap: 10 }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {Array.from({ length: frames }, (_, i) => (
-          <button key={i} type="button" onClick={() => setPick(i)} style={{ padding: 0, border: `2px solid ${pick === i ? "var(--accent)" : "transparent"}`, borderRadius: 8, background: "none", cursor: "pointer" }}>
+          <button key={i} type="button" onClick={() => { setPick(i); setSaved((x) => (x === "yes" ? "no" : x)); }} style={{ padding: 0, border: `2px solid ${pick === i ? "var(--accent)" : "transparent"}`, borderRadius: 8, background: "none", cursor: "pointer" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={`/api/derivatives/${derivativeId}/frame/${i}`} alt={`第 ${i + 1} 帧`} style={{ display: "block", height: orient === "v" ? 120 : 68, borderRadius: 6 }} />
           </button>
         ))}
       </div>
-      <input className="textin" aria-label="封面标题" value={title} onChange={(e) => setTitle(e.target.value)} />
+      <input className="textin" aria-label="封面标题" value={title} onChange={(e) => { setTitle(e.target.value); setSaved((x) => (x === "yes" ? "no" : x)); }} />
       <canvas ref={canvas} style={{ width: "100%", maxWidth: orient === "v" ? 280 : 520, borderRadius: 8, border: "1px solid var(--line)" }} />
-      <div><button type="button" className="btn sm" onClick={download}>下载封面</button></div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <button type="button" className="btn sm" onClick={download}>下载封面</button>
+        {editable && <button type="button" className="btn sm primary" disabled={saved === "saving"} onClick={save}>{saved === "saving" ? "保存中…" : "设为发布封面"}</button>}
+        <span style={{ fontSize: 12, color: saved === "yes" ? "var(--ok)" : saved === "no" || saved === "saving" ? "var(--muted)" : "var(--bad)" }}>
+          {saved === "yes" ? "已设为发布封面，改了标题或换了帧要再点一次" : saved === "no" ? "还没设：自动发布时不带封面，平台会自己挑一帧" : saved === "saving" ? "" : saved}
+        </span>
+      </div>
     </div>
   );
 }

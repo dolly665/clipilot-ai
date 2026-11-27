@@ -3,7 +3,9 @@ import { Chip } from "@/components/ui";
 import { METHOD_LABEL, PLATFORM_KEYS, PLATFORMS, type PlatformKey } from "@/domain/platforms";
 import { TOPICS } from "@/domain/types";
 import { prisma } from "@/server/app";
-import { removeWord } from "./actions";
+import { disconnectYoutube, removeWord } from "./actions";
+import { youtubeConfig, youtubeStatus } from "@/server/publish/youtube";
+import { Notice } from "@/components/ui";
 import { WordForm } from "./WordForm";
 import { PhotoForm } from "./PhotoForm";
 import { audioBackground } from "@/server/storage";
@@ -21,7 +23,10 @@ const NOW: Partial<Record<PlatformKey, string>> = {
   yts: "现在：下载成片手动上传。第二阶段接官方接口，全自动",
 };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ youtube?: string }> }) {
+  const sp = await searchParams;
+  const yt = await youtubeStatus();
+  const redirectUri = youtubeConfig()?.redirectUri ?? "http://localhost:3000/api/connect/youtube/callback";
   const words = await prisma.sensitiveWord.findMany({ orderBy: { createdAt: "asc" } });
   const bg = await audioBackground();
   const bgStamp = bg ? Math.floor(fs.statSync(bg).mtimeMs) : 0;
@@ -59,6 +64,37 @@ export default async function SettingsPage() {
           <p style={{ fontSize: 12, color: "var(--muted)", margin: "10px 0 0" }}>这里是默认勾选，每条内容在发布信息页都能改。</p>
         </section>
       </div>
+      <section className="panel" style={{ marginBottom: 16 }} id="youtube">
+        <h2>自动发布 · YouTube <small>官方接口，批准后自动上传成片、字幕、封面，到点公开</small></h2>
+        {sp.youtube && (
+          <div style={{ marginBottom: 12 }}>
+            {sp.youtube === "ok" ? <Notice tone="ok" icon="✓" title="YouTube 已连接" /> : <Notice tone="bad" icon="!" title="没连上">{sp.youtube}</Notice>}
+          </div>
+        )}
+        {yt.connected ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span>已连接频道：<b>{yt.channelTitle ?? "（没读到频道名）"}</b></span>
+            <form action={disconnectYoutube}><button className="btn sm">断开</button></form>
+            {!yt.configured && <span style={{ fontSize: 12, color: "var(--bad)" }}>.env 里的 YOUTUBE_CLIENT_ID / SECRET 不见了，上传会失败</span>}
+          </div>
+        ) : yt.configured ? (
+          <a className="btn primary" href="/api/connect/youtube/start">连接 YouTube</a>
+        ) : (
+          <div style={{ fontSize: 13 }}>
+            <p style={{ margin: "0 0 8px" }}>要先在 Google 那边建一个「应用」，拿到两串钥匙填进 <code>.env</code>（只做一次）：</p>
+            <ol style={{ margin: 0, paddingLeft: 22, lineHeight: 1.9, listStyle: "decimal" }}>
+              <li>打开 console.cloud.google.com，新建一个项目（名字随便，比如「清清」）。</li>
+              <li>「API 和服务 → 库」里搜 <b>YouTube Data API v3</b>，点启用。</li>
+              <li>「OAuth 同意屏幕」：用户类型选「外部」，填应用名和你的邮箱；在「测试用户」里加上你自己的 Google 账号；最后点「发布应用」，不然授权 7 天就失效。</li>
+              <li>「凭据 → 创建凭据 → OAuth 客户端 ID」，类型选「Web 应用」，已获授权的重定向 URI 填：<div className="url" style={{ margin: "4px 0" }}>{redirectUri}</div></li>
+              <li>把客户端 ID 和密钥填进 <code>.env</code> 的 <code>YOUTUBE_CLIENT_ID</code>、<code>YOUTUBE_CLIENT_SECRET</code>，重启清清，这里就会出现「连接 YouTube」。</li>
+            </ol>
+          </div>
+        )}
+        <p style={{ fontSize: 12, color: "var(--muted)", margin: "10px 0 0" }}>
+          注意：Google 规定，没通过审核的个人应用传上去的视频会被锁成「私享」。要让视频按时公开，需要在 Google 那边提交一次 YouTube API 审核（免费，一般几周）；审核前清清照样能传，你到 YouTube 工作室里手动改成公开就行。
+        </p>
+      </section>
       <section className="panel" style={{ marginBottom: 16 }}>
         <h2>音频配画面 <small>音频勾了视频平台时，画面 = 这张照片 + 声波 + 大字幕</small></h2>
         <PhotoForm has={!!bg} stamp={bgStamp} />

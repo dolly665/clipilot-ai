@@ -12,7 +12,7 @@ export type DerivativeContent =
   | { kind: "video"; variant: "clean" | "burned"; orient: "h" | "v"; durationSec: number }
   | { kind: "subtitle"; cues: number }
   /** 封面候选帧（相对 DATA_DIR 的路径）和封面标题；叠字在页面上做 */
-  | { kind: "cover"; frames: string[]; title: string; orient: "h" | "v" }
+  | { kind: "cover"; frames: string[]; title: string; orient: "h" | "v"; /** 你在页面上选好帧、叠好标题后存下的封面（自动发布时用） */ png?: string }
   /** 某个视频平台的标题、简介、标签 */
   | { kind: "video_copy"; title: string; desc: string; tags: string[] };
 
