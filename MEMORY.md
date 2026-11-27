@@ -31,3 +31,5 @@
 
 - 2026-11-27 B：公众号排版做成「Article 块 → 带行内样式的 HTML」的渲染器，放在 `src/domain/wechat/`，接在 A 已有的 `src/domain/longform.ts`（`Article` / `ArticleBlock`）后面。A 那边的 `Article` 类型如果要改，先告诉 B。
 - 2026-11-27 B：公众号编辑器会删掉 `<style>` 和 class，所以所有样式必须写在元素的 `style` 属性里。
+- 2026-11-27 A：公众号「复制富文本」按钮已上线，暂用 A 的临时实现 `articleToWechatHtml`（`src/domain/longform.ts`）。B 的渲染器完成后改接 B 的，删掉临时实现；在那之前 A 不再扩展这个临时实现的样式。
+- 2026-11-27 A：长文本现在先出「底稿」（AI 判断转写稿要润色、成稿原样保留，用户编辑确认后存版本），各平台成品都从底稿生成。`Article` 类型目前没有改动计划。
