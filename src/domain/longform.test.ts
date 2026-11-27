@@ -37,15 +37,3 @@ describe("longform", () => {
     expect(articleToMarkdown(a)).toBe("# T\n\n> L\n\n## H\n\n一段\n");
   });
 });
-
-import { articleToWechatHtml } from "./longform";
-describe("articleToWechatHtml", () => {
-  it("只用内联样式，转义特殊字符", () => {
-    const html = articleToWechatHtml({ title: "T", lead: "导语<b>", blocks: [{ type: "heading", text: "小标题" }, { type: "paragraph", text: "a & b" }, { type: "quote", text: "金句" }] });
-    expect(html).not.toContain("class=");
-    expect(html).toContain("导语&lt;b&gt;");
-    expect(html).toContain("a &amp; b");
-    expect(html).toMatch(/<h2 style="[^"]+">小标题<\/h2>/);
-    expect(html).toContain("<blockquote");
-  });
-});

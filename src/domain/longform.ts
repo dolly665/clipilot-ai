@@ -74,23 +74,3 @@ export function articleToMarkdown(a: Article): string {
 export function articleParagraphs(a: Article): string[] {
   return a.blocks.flatMap((b) => (b.type === "paragraph" ? [b.text] : []));
 }
-
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-/**
- * 公众号编辑器用的富文本：只用内联样式（编辑器会丢掉 <style> 和 class），
- * 复制后直接粘进公众号后台，格式不乱。
- */
-export function articleToWechatHtml(a: Article, accent = "#1D6B60"): string {
-  const p = (t: string) => `<p style="margin:0 0 1.2em;font-size:16px;line-height:1.85;color:#333;letter-spacing:0.5px;">${esc(t)}</p>`;
-  const parts: string[] = [];
-  if (a.lead) parts.push(`<p style="margin:0 0 1.6em;font-size:15px;line-height:1.8;color:#888;">${esc(a.lead)}</p>`);
-  for (const b of a.blocks) {
-    if (b.type === "heading") {
-      parts.push(`<h2 style="margin:1.8em 0 0.9em;padding-left:10px;border-left:4px solid ${accent};font-size:18px;font-weight:bold;line-height:1.5;color:#222;">${esc(b.text)}</h2>`);
-    } else if (b.type === "quote") {
-      parts.push(`<blockquote style="margin:1.4em 0;padding:14px 18px;background:#F2F7F5;border-radius:8px;font-size:16px;line-height:1.8;color:${accent};font-weight:bold;">${esc(b.text)}</blockquote>`);
-    } else parts.push(p(b.text));
-  }
-  return `<section style="font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;">${parts.join("")}</section>`;
-}

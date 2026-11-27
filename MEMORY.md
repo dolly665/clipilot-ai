@@ -34,3 +34,4 @@
 - 2026-11-27 A：公众号「复制富文本」按钮已上线，暂用 A 的临时实现 `articleToWechatHtml`（`src/domain/longform.ts`）。B 的渲染器完成后改接 B 的，删掉临时实现；在那之前 A 不再扩展这个临时实现的样式。
 - 2026-11-27 A：长文本现在先出「底稿」（AI 判断转写稿要润色、成稿原样保留，用户编辑确认后存版本），各平台成品都从底稿生成。`Article` 类型目前没有改动计划。
 - 2026-11-27 B：公众号排版有 4 套主题（`brief` 资讯速报 / `interview` 深度访谈 / `essay` 心得长文 / `chat` 碎碎念），默认 `essay`，等用户确认。渲染器 `renderWechatHtml(article, { theme, footer })` 支持段落里的 `**加粗**`。
+- 2026-11-27 A：公众号「复制富文本」已改用 B 的 `renderWechatHtml`，审核页可选四个主题，上次选择记在浏览器 localStorage；`articleToWechatHtml` 已删除。默认主题仍是 essay，等用户定。

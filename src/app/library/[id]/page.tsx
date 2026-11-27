@@ -3,14 +3,14 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { ApproveButton } from "@/components/ApproveButton";
 import { CardDeck } from "@/components/CardDeck";
-import { RichCopyButton } from "@/components/RichCopyButton";
+import { WechatCopy } from "@/components/WechatCopy";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { CopyButton } from "@/components/CopyButton";
 import { RegenerateButton } from "@/components/RegenerateButton";
 import { Chip, Highlighted, JobChip, Notice, RegionChips, SourceStatusChip } from "@/components/ui";
 import { scanSensitive } from "@/domain/compliance";
 import { derivativeCopyText, type DerivativeContent } from "@/domain/derivatives";
-import { articleToMarkdown, articleToWechatHtml, type Article } from "@/domain/longform";
+import type { Article } from "@/domain/longform";
 import { isPlatformKey, METHOD_LABEL, PLATFORMS, type PlatformKey } from "@/domain/platforms";
 import { formatTime } from "@/domain/transcript";
 import { CONTENT_TYPES, ROUGH_CUT_LEVELS } from "@/domain/types";
@@ -97,10 +97,10 @@ export default async function SourceDetailPage({ params, searchParams }: { param
           {meta(d)}
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             {actions(d)}
-            <RichCopyButton html={articleToWechatHtml(d.c.article)} text={articleToMarkdown(d.c.article)} />
+            <WechatCopy article={d.c.article} />
           </div>
         </div>
-        <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>标题「{d.c.article.title}」单独填进公众号的标题栏；「复制富文本」复制的是正文，粘进编辑器格式不乱。</p>
+        <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>标题「{d.c.article.title}」单独填进公众号的标题栏；「复制富文本」复制的是正文，按选的排版主题带好样式，粘进编辑器格式不乱。</p>
         {article(d.c.article, d.c.article.title)}
       </div>
     );
