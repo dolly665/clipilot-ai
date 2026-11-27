@@ -79,6 +79,16 @@ describe("发布执行器", () => {
     expect(calls).toEqual([j.id]);
   });
 
+  it("账号没连接的平台不发、不算失败，留给手动", async () => {
+    calls.length = 0;
+    const j = await job("yt", "approved");
+    const r = publishRunner(db.prisma, [{ ...ok("yt"), ready: async () => false }]);
+    expect(await r.runDue(NOW)).toEqual([]);
+    expect((await r.runJob(j.id, { force: true })).error).toContain("连接");
+    expect((await db.prisma.publishJob.findUnique({ where: { id: j.id } }))!.status).toBe("approved");
+    expect(calls).toEqual([]);
+  });
+
   it("手动发布：记成已发布，链接要像个链接", async () => {
     const j = await job("dy", "approved");
     const r = publishRunner(db.prisma, []);

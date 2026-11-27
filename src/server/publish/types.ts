@@ -10,5 +10,7 @@ export type PublishConnector = {
   platform: PlatformKey;
   /** true：批准后马上上传，由平台自己按排期时间公开（比如 YouTube 的 publishAt）；false：到排期时间才发 */
   uploadEarly?: boolean;
+  /** 这个平台现在能不能自动发（比如已经连接了账号）。返回 false 时任务留着给用户手动发，不算失败 */
+  ready?(): Promise<boolean>;
   publish(db: PrismaClient, jobId: string, opts: { now: Date }): Promise<{ url: string | null; warnings: string[] }>;
 };

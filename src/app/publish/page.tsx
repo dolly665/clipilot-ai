@@ -19,6 +19,7 @@ const fmt = (d: Date | null) => (d ? d.toLocaleString("zh-CN", { month: "numeric
 
 export default async function PublishPage() {
   const runner = publishRunner(prisma);
+  const ready = await runner.readyPlatforms();
   const jobs = await prisma.publishJob.findMany({
     where: { status: { in: GROUPS.flatMap((g) => g.statuses) } },
     include: { source: true },
@@ -48,14 +49,14 @@ export default async function PublishPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {list.map((j) => {
                   const p = isPlatformKey(j.platform) ? PLATFORMS[j.platform] : null;
-                  const auto = runner.hasConnector(j.platform);
+                  const auto = ready.has(j.platform);
                   return (
                     <div key={j.id} style={{ display: "flex", gap: 12, justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", borderTop: "1px solid var(--line)", paddingTop: 12 }}>
                       <div style={{ minWidth: 0, flex: "1 1 240px" }}>
                         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                           {p && <Chip tone={p.region}>{p.name}</Chip>}
                           <JobChip status={j.status} />
-                          {j.status === "approved" && !auto && <Chip tone="warn">等你手动发</Chip>}
+                          {j.status === "approved" && !auto && <Chip tone="warn">{runner.hasConnector(j.platform) ? "账号未连接，等你手动发" : "等你手动发"}</Chip>}
                         </div>
                         <Link href={`/library/${j.sourceId}`} style={{ display: "block", marginTop: 6, fontWeight: 600 }}>{readDraft(j.source).title || j.source.originalName}</Link>
                         <div style={{ fontSize: 12, color: "var(--muted)" }}>排期：{fmt(j.scheduledAt)}</div>
