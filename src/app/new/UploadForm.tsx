@@ -1,15 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { uploadText, type ActionResult } from "../actions";
 
 const MEDIA = /\.(mp3|m4a|aac|wav|flac|ogg|opus|wma|mp4|mov|m4v|mkv|webm|avi)$/i;
+const VIDEO = /\.(mp4|mov|m4v|mkv|webm|avi)$/i;
 
-/** 音视频走流式上传接口（文件可能很大），带进度 */
-function uploadMedia(file: File, onProgress: (p: number) => void): Promise<{ id?: string; error?: string }> {
+/** 音视频走流式上传接口（文件可能很大），带进度；可以中途取消 */
+function uploadMedia(file: File, onProgress: (p: number) => void, xhr: XMLHttpRequest): Promise<{ id?: string; error?: string; aborted?: boolean }> {
   return new Promise((resolve) => {
-    const xhr = new XMLHttpRequest();
     xhr.open("POST", `/api/upload?name=${encodeURIComponent(file.name)}`);
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
     xhr.onload = () => {
@@ -20,6 +20,7 @@ function uploadMedia(file: File, onProgress: (p: number) => void): Promise<{ id?
       }
     };
     xhr.onerror = () => resolve({ error: "上传失败，网络错误" });
+    xhr.onabort = () => resolve({ aborted: true });
     xhr.send(file);
   });
 }
@@ -31,6 +32,7 @@ export function UploadForm() {
   const [progress, setProgress] = useState<number | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const router = useRouter();
+  const xhrRef = useRef<XMLHttpRequest | null>(null);
 
   return (
     <form
@@ -41,12 +43,19 @@ export function UploadForm() {
         if (!file || !MEDIA.test(file.name)) return; // 文本走 server action
         e.preventDefault();
         setMediaError(null);
+        if (VIDEO.test(file.name)) {
+          setMediaError("视频会在下一步接入，现在先支持音频和长文本。");
+          return;
+        }
         setProgress(0);
-        const r = await uploadMedia(file, setProgress);
+        const xhr = new XMLHttpRequest();
+        xhrRef.current = xhr;
+        const r = await uploadMedia(file, setProgress, xhr);
+        xhrRef.current = null;
         if (r.id) router.push(`/new/${r.id}`);
         else {
           setProgress(null);
-          setMediaError(r.error ?? "上传失败");
+          if (!r.aborted) setMediaError(r.error ?? "上传失败");
         }
       }}
     >
@@ -98,7 +107,12 @@ export function UploadForm() {
 
       {(mediaError ?? state.error) && <div className="notice bad" style={{ marginBottom: 14 }}><span>!</span><div><b>{mediaError ?? state.error}</b></div></div>}
 
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        {progress !== null && (
+          <button type="button" className="btn" onClick={() => xhrRef.current?.abort()}>
+            取消上传
+          </button>
+        )}
         <button className="btn primary" disabled={pending || progress !== null}>{pending || progress !== null ? "上传中…" : "交给清清"}</button>
       </div>
     </form>

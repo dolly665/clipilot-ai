@@ -167,3 +167,14 @@ export async function confirmManuscript(id: string, body: string): Promise<Actio
   revalidatePath(`/new/${id}`);
   return {};
 }
+
+/** 取消一条内容：删掉记录和它的全部文件，回到上传页 */
+export async function cancelSource(id: string): Promise<ActionResult> {
+  try {
+    await sources.remove(id);
+  } catch (e) {
+    return { error: message(e) };
+  }
+  revalidatePath("/", "layout");
+  redirect("/new");
+}

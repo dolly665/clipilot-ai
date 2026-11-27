@@ -1,3 +1,4 @@
+import { CancelSourceButton } from "@/components/CancelSourceButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -172,7 +173,10 @@ export default async function SourceDetailPage({ params, searchParams }: { param
           <h1 style={{ marginTop: 4 }}>{draft.title || s.originalName}</h1>
           <p>{CONTENT_TYPES[draft.type]} · {draft.topic} · {s.createdAt.toLocaleDateString("zh-CN")}</p>
         </div>
-        <div className="chips"><RegionChips regions={draft.regions} /><SourceStatusChip status={s.status} /></div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+          <div className="chips"><RegionChips regions={draft.regions} /><SourceStatusChip status={s.status} /></div>
+          {s.status !== "approved" && <CancelSourceButton id={id} label="删除这条" />}
+        </div>
       </div>
       <div className="grid g-detail">
         <aside style={{ display: "flex", flexDirection: "column", gap: 16 }}>

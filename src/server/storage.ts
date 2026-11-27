@@ -52,3 +52,17 @@ export function derivativePath(sourceId: string, name: string) {
 export function tempUploadPath(name: string) {
   return path.posix.join("tmp", name);
 }
+
+/**
+ * 用户取消一条内容时，删掉它在数据目录里的全部文件（原件、中间文件、成品）。
+ * 原件是只读的，Windows 上要先去掉只读才能删。
+ */
+export async function removeSourceFiles(sourceId: string, root = dataDir()) {
+  if (!/^[A-Za-z0-9_-]+$/.test(sourceId)) throw new Error(`不合法的素材 ID：${sourceId}`);
+  for (const dir of ["sources", "work", "derivatives"]) {
+    const abs = resolveData(path.posix.join(dir, sourceId), root);
+    const names = await fs.readdir(abs).catch(() => [] as string[]);
+    await Promise.all(names.map((n) => fs.chmod(path.join(abs, n), 0o666).catch(() => {})));
+    await fs.rm(abs, { recursive: true, force: true });
+  }
+}

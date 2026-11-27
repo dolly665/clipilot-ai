@@ -13,7 +13,7 @@ import { layoutLongform, polishText, shortPosts, shownotes, spokenArticle, textK
 import { defaultAsr, type AsrProvider } from "./asr";
 import { dataDir } from "./env";
 import { extractSpeechAudio, probe, renderAudioCut } from "./media/ffmpeg";
-import { adoptOriginal, derivativePath, resolveData, saveOriginal, workPath } from "./storage";
+import { adoptOriginal, derivativePath, removeSourceFiles, resolveData, saveOriginal, workPath } from "./storage";
 
 export type SourceStatus = "processing" | "drafting" | "prefilled" | "generating" | "review" | "approved" | "failed";
 export type TextMode = "polish" | "layout";
@@ -113,7 +113,22 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
 
   async function fail(id: string, e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
-    await db.source.update({ where: { id }, data: { status: "failed", error: message } });
+    // 用 updateMany：用户中途取消（记录已删）时不再报错
+    await db.source.updateMany({ where: { id }, data: { status: "failed", error: message } });
+  }
+
+  /**
+   * 用户取消一条内容：删掉记录（底稿、成品、发布任务一起删）和它的全部文件。
+   * 已批准或已经在发布的内容不能这样删。
+   */
+  async function remove(id: string) {
+    const s = await db.source.findUnique({ where: { id } });
+    if (!s) return;
+    if (s.status === "approved") throw new Error("已批准的内容不能取消");
+    const live = await db.publishJob.count({ where: { sourceId: id, status: { in: ["approved", "queued", "uploading", "awaiting_click", "published"] } } });
+    if (live > 0) throw new Error("这条内容已经在发布了，不能取消");
+    await db.source.delete({ where: { id } });
+    await removeSourceFiles(id, root);
   }
 
   /** 新建文本素材：原文存成只读文件，状态为「处理中」 */
@@ -597,7 +612,7 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
   }
 
   return {
-    createText, prefill, updateDraft, restorePrefill, startGenerate, generate, regenerate, approve, syncJobs,
+    remove, createText, prefill, updateDraft, restorePrefill, startGenerate, generate, regenerate, approve, syncJobs,
     createMedia, processAudio, renderRoughCut, setCutLevel, toggleCut,
     processText, requestRedraft, runRedraft, saveManuscript, restoreManuscript, confirmManuscript, latestManuscript,
   };

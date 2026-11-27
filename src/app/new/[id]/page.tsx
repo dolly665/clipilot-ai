@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
+import { CancelSourceButton } from "@/components/CancelSourceButton";
 import { PageHead } from "@/components/PageHead";
 import { Notice } from "@/components/ui";
 import { scanSensitive } from "@/domain/compliance";
@@ -31,7 +32,8 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
   if (!s) notFound();
   if (["generating", "review", "approved"].includes(s.status)) redirect(`/library/${id}`);
 
-  const head = <PageHead eyebrow="第 1 步" title="上传新内容" desc={s.originalName} />;
+  const cancel = <CancelSourceButton id={id} />;
+  const head = <PageHead eyebrow="第 1 步" title="上传新内容" desc={s.originalName} actions={cancel} />;
 
   if (s.status === "drafting") {
     const versions = await prisma.manuscript.findMany({ where: { sourceId: id }, orderBy: { version: "desc" } });
@@ -39,7 +41,7 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
     const words = (await prisma.sensitiveWord.findMany()).map((w) => w.word);
     return (
       <>
-        <PageHead eyebrow="第 1 步 · 底稿" title="确认底稿" desc={`${s.originalName} · 看一遍底稿，不对的地方直接改。`} />
+        <PageHead eyebrow="第 1 步 · 底稿" title="确认底稿" desc={`${s.originalName} · 看一遍底稿，不对的地方直接改。`} actions={cancel} />
         <ManuscriptEditor
           key={latest.version}
           id={id}
