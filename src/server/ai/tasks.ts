@@ -3,6 +3,7 @@ import { CONTENT_TYPES, TOPICS, type SourceKind, type Topic } from "@/domain/typ
 import fs from "node:fs";
 import path from "node:path";
 import { charCount, splitForPolish } from "@/domain/chunk";
+import { cleanTranscriptExport } from "@/domain/polish/clean";
 import { runTask, runTextTask, type AiProvider, type TaskResult } from "./index";
 import { LongformPlanSchema, ShortPostsSchema, VideoCopySchema, ShownotesSchema, SpokenArticleSchema, TextKindSchema, UnderstandSchema, ZhihuSchema } from "./schemas";
 import { formatTime, type Transcript } from "@/domain/transcript";
@@ -84,9 +85,12 @@ export type PolishResult = { text: string; warnings: string[]; prompt: { name: s
  * 每块对比字数：删得太多或加得太多都记一条提醒，让你对照原文检查。
  */
 export async function polishText(text: string, opts: Opts = {}): Promise<PolishResult> {
-  const chunks = splitForPolish(text);
+  // 去掉转写工具导出时加的 AI 摘要、说话人和时间行（原文本身不改，只影响底稿）
+  const cleaned = cleanTranscriptExport(text);
+  const chunks = splitForPolish(cleaned.text, polishChunkChars());
   const out: string[] = [];
   const warnings: string[] = [];
+  if (cleaned.removed.length) warnings.push(`去掉了转写工具加的 ${cleaned.removed.length} 行（AI 摘要、说话人、时间），不是你说的话`);
   let prompt = { name: "polish", version: 0 };
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i]!;
@@ -102,6 +106,12 @@ export async function polishText(text: string, opts: Opts = {}): Promise<PolishR
     if (before > 80 && after > before * 1.3) warnings.push(`${where}比原文长不少（${before} 字 → ${after} 字），请检查有没有加进原文没有的内容`);
   }
   return { text: out.join("\n\n"), warnings, prompt };
+}
+
+/** 润色分块大小（字）：块小理得更细，默认 800，可用 POLISH_CHUNK_CHARS 调 */
+export function polishChunkChars(env: Record<string, string | undefined> = process.env): number {
+  const n = Number(env.POLISH_CHUNK_CHARS);
+  return Number.isFinite(n) && n >= 200 ? Math.floor(n) : 800;
 }
 
 /** 同音错字表：prompts/polish/glossary.md 里「听错 → 应为」的行 */

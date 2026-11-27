@@ -87,14 +87,15 @@ describe("tasks（fake 提供方）", () => {
   });
 });
 
-describe("polish v2", () => {
-  it("默认用最新版 v2，带上同音错字表，保留语气词的要求在提示词里", async () => {
+describe("polish 最新版", () => {
+  it("默认用最新版 v4，带上同音错字表、作者认可的对照示例，保留语气词的要求在提示词里", async () => {
     const { loadGlossary } = await import("./tasks");
     const g = loadGlossary();
     expect(g).toContain("称 → 嗔");
     expect(g).not.toContain("听错 → 应为");
     const p = loadPrompt("polish");
-    expect(p.version).toBe(2);
+    expect(p.version).toBe(4);
+    expect(p.system).toContain("转写原文");
     expect(render(p.system, { glossary: g })).toContain("阿耨多罗三藐三菩提");
     expect(p.system).toContain("「就是」");
   });
@@ -110,5 +111,19 @@ describe("账号名", () => {
     for (const n of ["understand", "spoken-article", "polish"]) {
       expect(loadPrompt(n).system).not.toMatch(/你是(自媒体账号「)?时予清/);
     }
+  });
+});
+
+describe("润色入口", () => {
+  it("去掉转写导出稿的摘要和说话人行，并提醒", async () => {
+    const { polishText, polishChunkChars } = await import("./tasks");
+    const { createFakeProvider } = await import("./providers/fake");
+    const raw = "这期聊边界感。\n以上内容由AI大模型生成，请仔细甄别。\n说话人1 00:00:01\n嗯今天想聊聊边界感然后就是说很多人不敢拒绝";
+    const r = await polishText(raw, { provider: createFakeProvider() });
+    expect(r.text).not.toContain("说话人");
+    expect(r.text).not.toContain("大模型");
+    expect(r.warnings.join()).toContain("转写工具");
+    expect(polishChunkChars({})).toBe(800);
+    expect(polishChunkChars({ POLISH_CHUNK_CHARS: "1200" })).toBe(1200);
   });
 });

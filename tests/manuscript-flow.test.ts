@@ -33,7 +33,7 @@ describe("底稿：判断 → 润色 / 原样 → 编辑 → 确认", () => {
     expect(s.textModeReason).toBeTruthy();
     expect(s.text).toBe(SPOKEN);
     const m = await svc.latestManuscript(s.id);
-    expect(m).toMatchObject({ version: 1, origin: "ai", templateKey: "polish", templateVersion: 2 });
+    expect(m).toMatchObject({ version: 1, origin: "ai", templateKey: "polish", templateVersion: 4 });
     expect(m!.body).not.toContain("嗯");
   });
 
@@ -104,7 +104,7 @@ describe("polishText", () => {
     const provider: AiProvider = { name: "s", model: "s", complete: async (r) => { seen.push(r.user); return fake.complete(r); } };
     const long = Array.from({ length: 30 }, (_, i) => `这是第${i}段，讲了一些事情，`.repeat(12) + "。").join("\n");
     const r = await polishText(long, { provider });
-    expect(seen.length).toBe(splitForPolish(long).length);
+    expect(seen.length).toBe(splitForPolish(long, 800).length);
     expect(seen.length).toBeGreaterThan(1);
     expect(seen[1]).toContain("上一部分（已理顺）结尾是");
     expect(r.text.length).toBeGreaterThan(0);
