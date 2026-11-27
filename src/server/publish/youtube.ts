@@ -4,6 +4,7 @@ import type { DerivativeContent } from "@/domain/derivatives";
 import { dataDir } from "../env";
 import { resolveData } from "../storage";
 import { deleteCredential, readCredential, writeCredential } from "./credentials";
+import type { PublishConnector } from "./types";
 
 /**
  * YouTube 官方接口（Data API v3）：OAuth 授权、分块断点上传、上传中文字幕、设封面。
@@ -258,3 +259,13 @@ export async function publishYoutubeJob(db: PrismaClient, jobId: string, opts: {
   const url = isShort ? `https://www.youtube.com/shorts/${r.videoId}` : `https://www.youtube.com/watch?v=${r.videoId}`;
   return { url, videoId: r.videoId, warnings: r.warnings };
 }
+
+/** 给发布执行器用：YouTube 和 Shorts 都是批准后马上上传，由 YouTube 按 publishAt 到点公开 */
+export const youtubeConnectors: PublishConnector[] = (["yt", "yts"] as const).map((platform) => ({
+  platform,
+  uploadEarly: true,
+  async publish(db, jobId) {
+    const r = await publishYoutubeJob(db, jobId);
+    return { url: r.url, warnings: r.warnings };
+  },
+}));
