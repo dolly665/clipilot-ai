@@ -7,7 +7,14 @@ export type DerivativeContent =
   | { kind: "zhihu_article"; question: string; article: Article }
   | { kind: "zhihu_idea"; text: string }
   | { kind: "post"; title?: string; text: string; tags?: string[]; cover?: { title: string; subtitle: string }; cards?: { title: string; body: string }[] }
-  | { kind: "podcast"; title: string; shownotes: string; durationSec: number };
+  | { kind: "podcast"; title: string; shownotes: string; durationSec: number }
+  /** 粗剪成片：clean 不带字幕（配 SRT 上传），burned 字幕烧进画面（竖屏、视频号） */
+  | { kind: "video"; variant: "clean" | "burned"; orient: "h" | "v"; durationSec: number }
+  | { kind: "subtitle"; cues: number }
+  /** 封面候选帧（相对 DATA_DIR 的路径）和封面标题；叠字在页面上做 */
+  | { kind: "cover"; frames: string[]; title: string; orient: "h" | "v" }
+  /** 某个视频平台的标题、简介、标签 */
+  | { kind: "video_copy"; title: string; desc: string; tags: string[] };
 
 export type DerivativeKind = DerivativeContent["kind"];
 
@@ -17,6 +24,10 @@ export const DERIVATIVE_LABEL: Record<DerivativeKind, string> = {
   zhihu_idea: "知乎想法",
   post: "短帖",
   podcast: "播客音频",
+  video: "粗剪成片",
+  subtitle: "字幕",
+  cover: "封面",
+  video_copy: "视频文案",
 };
 
 /** 每个平台的发布任务挂在哪种成品上 */
@@ -30,7 +41,18 @@ export const JOB_DERIVATIVE: Partial<Record<PlatformKey, DerivativeKind>> = {
   xyz: "podcast",
   xmly: "podcast",
   pod: "podcast",
+  bili: "video_copy",
+  sph: "video_copy",
+  dy: "video_copy",
+  xhs: "video_copy",
+  yt: "video_copy",
+  yts: "video_copy",
 };
+
+/** 这种成品按平台各一条（找发布任务挂哪条时要对上平台） */
+export function isPerPlatform(kind: DerivativeKind): boolean {
+  return kind === "post" || kind === "video_copy";
+}
 
 /** 用于合规扫描的全部文字 */
 export function derivativeText(c: DerivativeContent): string {
@@ -51,6 +73,13 @@ export function derivativeText(c: DerivativeContent): string {
       ].filter(Boolean).join("\n\n");
     case "podcast":
       return `${c.title}\n\n${c.shownotes}`;
+    case "video_copy":
+      return [c.title, c.desc, c.tags.map((t) => `#${t}`).join(" ")].filter(Boolean).join("\n\n");
+    case "cover":
+      return c.title;
+    case "video":
+    case "subtitle":
+      return "";
   }
 }
 

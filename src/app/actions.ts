@@ -42,8 +42,8 @@ export async function uploadText(_: ActionResult, form: FormData): Promise<Actio
 
 export async function retryPrefill(id: string) {
   const s = await prisma.source.findUniqueOrThrow({ where: { id } });
-  // 音频如果连识别都没完成，从头处理；否则只重跑预填
-  if (s.kind === "audio" && !s.transcript) runInBackground(`处理音频 ${id}`, () => sources.processAudio(id));
+  // 音视频如果连识别都没完成，从头处理；否则只重跑预填
+  if ((s.kind === "audio" || s.kind === "video") && !s.transcript) runInBackground(`处理音频 ${id}`, () => sources.processAudio(id));
   else if (s.kind === "text" && !(await sources.latestManuscript(id))) runInBackground(`整理底稿 ${id}`, () => sources.processText(id));
   else runInBackground(`预填 ${id}`, () => sources.prefill(id));
   revalidatePath(`/new/${id}`);

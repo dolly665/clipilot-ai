@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { charCount, splitForPolish } from "@/domain/chunk";
 import { runTask, runTextTask, type AiProvider, type TaskResult } from "./index";
-import { LongformPlanSchema, ShortPostsSchema, ShownotesSchema, SpokenArticleSchema, TextKindSchema, UnderstandSchema, ZhihuSchema } from "./schemas";
+import { LongformPlanSchema, ShortPostsSchema, VideoCopySchema, ShownotesSchema, SpokenArticleSchema, TextKindSchema, UnderstandSchema, ZhihuSchema } from "./schemas";
 import { formatTime, type Transcript } from "@/domain/transcript";
 
 type Opts = { provider?: AiProvider };
@@ -115,4 +115,28 @@ export function loadGlossary(file = path.resolve(/*turbopackIgnore: true*/ proce
   } catch {
     return "（无）";
   }
+}
+
+/** 视频平台的标题、简介、标签。只要求写本次勾选的平台。 */
+export async function videoCopy(
+  input: { transcript: Transcript; title: string; topic: Topic; orient: "h" | "v"; platforms: string[] },
+  opts: Opts = {},
+) {
+  const NAMES: Record<string, string> = { bili: "B站", sph: "视频号", dy: "抖音", xhs: "小红书", yt: "YouTube", yts: "YouTube Shorts" };
+  const r = await runTask(
+    "video-copy",
+    {
+      title: input.title,
+      topic: input.topic,
+      orient: input.orient === "v" ? "竖屏" : "横屏",
+      duration: formatTime(input.transcript.duration),
+      platforms: input.platforms.map((k) => `- ${k}：${NAMES[k] ?? k}`).join("\n"),
+      text: input.transcript.sentences.map((s) => s.text).join("\n"),
+    },
+    VideoCopySchema,
+    { ...opts, maxTokens: 4000 },
+  );
+  const missing = input.platforms.filter((k) => !(k in r.data.platforms));
+  if (missing.length) throw new Error(`视频文案缺少平台：${missing.join("、")}`);
+  return r;
 }

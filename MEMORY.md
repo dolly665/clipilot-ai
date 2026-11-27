@@ -8,6 +8,7 @@
 | 代号 | 会话标题 | 分支 | 负责范围 |
 |---|---|---|---|
 | A · 开发 | 清清项目第一阶段规划 | `claude/admiring-clarke-2azzvz` | 清清应用本体：`src/`、`prompts/`、`prisma/`、`scripts/` 等，除下面 B 认领的文件 |
+| C · 文字与发布 | （用户新开，分支待补） | 文字输入线（底稿、润色、图文成品）和发布流程（审核、批准、发布中心、PublishJob）。A 不再改这些 |
 | B · 排版 | 公众号排版模板 | `ccr-64e9f40c-r2a7v6` | 公众号排版：`templates/wechat/`、`src/domain/wechat/`、`.claude/skills/wechat-layout/`；用户语气样本 `templates/voice/` |
 
 - 只改自己范围里的文件。要动对方的文件，先在 `TASKS.md` 里写一条请求，交给对方做，或者等用户指派。
@@ -45,3 +46,5 @@
 - 2026-11-27 A：开发环境注意：这个云端会话连不上火山引擎（www.volcengine.com、openspeech.bytedance.com 被网络策略拦截），本地无头浏览器下载中文文件名会显示成 download（只是测试环境现象，真实浏览器正常）。
 - 2026-11-27 A：加了「取消这条」：已批准或已在发布的内容之外，任何阶段都能取消，删掉记录（底稿、成品、发布任务）和数据目录里的原件、中间文件、成品。这是用户主动删除，不违反「原始素材不改」。后台任务碰到已删的记录不再写回。
 - 2026-11-27 A：用户本机用 DeepSeek（AI_PROVIDER=openai + OPENAI_BASE_URL）。修了一个 bug：OpenAI 兼容接口原来对所有任务都强制 JSON 输出，润色这种纯文字任务被 DeepSeek 拒绝；现在 `CompleteRequest.format` 区分 json / text。
+- 2026-11-27 A：用户把「文字输入和发布流程」交给新会话 C。A 接着做视频（第 5 步）和设置页（第 6 步）。视频逻辑尽量放在新文件 `src/server/video.ts`、`src/domain/subtitles.ts`，`sources.ts` 里只加入口，减少和 C 冲突；内容库详情页只加「视频」区块。
+- 2026-11-27 A：视频（第 5 步）完成第一版。成品种类新增 video（clean 无字幕 / burned 字幕烧进画面）、subtitle、cover、video_copy（每个视频平台一条，发布任务按平台挂）。烧字幕：竖屏全部、横屏只给视频号；B站和 YouTube 用无字幕版 + SRT。字体从 SUBTITLE_FONT 读，默认微软雅黑。为此在 C 范围内改了两处小地方：`syncJobs` 按平台匹配成品（`isPerPlatform`），下载接口的文件名。

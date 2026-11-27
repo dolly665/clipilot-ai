@@ -1,6 +1,6 @@
 import { decidePlatforms, defaultRegions, isOverseasOnlyTopic, scanSensitive, type PlatformDecision, type SensitiveHit } from "@/domain/compliance";
 import { availablePlatforms, defaultPlatforms } from "@/domain/defaults";
-import { derivativeText, JOB_DERIVATIVE, type DerivativeContent } from "@/domain/derivatives";
+import { derivativeText, isPerPlatform, JOB_DERIVATIVE, type DerivativeContent } from "@/domain/derivatives";
 import { isPlatformKey, PLATFORMS, type PlatformKey } from "@/domain/platforms";
 import { CONTENT_TYPES, isTopic, REGIONS, type ContentType, type Orient, type Region, type SourceKind, type Topic } from "@/domain/types";
 import type { Prisma, PrismaClient, Source } from "@/generated/prisma/client";
@@ -9,10 +9,11 @@ import { transcriptText, type Transcript } from "@/domain/transcript";
 import type { RoughCutLevel } from "@/domain/types";
 import type { AiProvider } from "./ai";
 import type { Understand } from "./ai/schemas";
-import { layoutLongform, polishText, shortPosts, shownotes, spokenArticle, textKind, understand, zhihu } from "./ai/tasks";
+import { layoutLongform, polishText, shortPosts, shownotes, spokenArticle, textKind, understand, videoCopy, zhihu } from "./ai/tasks";
 import { defaultAsr, type AsrProvider } from "./asr";
 import { dataDir } from "./env";
 import { extractSpeechAudio, probe, renderAudioCut } from "./media/ffmpeg";
+import { generateVideoItems } from "./video";
 import { adoptOriginal, derivativePath, removeSourceFiles, resolveData, saveOriginal, workPath } from "./storage";
 
 export type SourceStatus = "processing" | "drafting" | "prefilled" | "generating" | "review" | "approved" | "failed";
@@ -259,7 +260,7 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
     for (const d of decisions) {
       if (d.state === "off") continue;
       const kind = JOB_DERIVATIVE[d.key];
-      const der = ders.find((x) => x.kind === kind && (kind !== "post" || x.platform === d.key));
+      const der = ders.find((x) => x.kind === kind && (!isPerPlatform(kind!) || x.platform === d.key));
       await db.publishJob.create({
         data: {
           sourceId,
@@ -277,7 +278,7 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
     try {
       const s = await get(id);
       if (s.kind === "audio") return await generateAudio(id);
-      if (s.kind !== "text") throw new Error("视频的生成在后续步骤接入");
+      if (s.kind === "video") return await generateVideo(id);
       const d = readDraft(s);
       const input = { text: await publishText(s), title: d.title, topic: d.topic };
       const [lf, zh, sp] = await Promise.all([layoutLongform(input, ai), zhihu(input, ai), shortPosts(input, ai)]);
@@ -311,7 +312,15 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
     let content: DerivativeContent;
     let prompt: { name: string; version: number };
 
-    if (s.kind === "audio" && old.kind !== "post") {
+    if (old.kind === "video" || old.kind === "subtitle" || old.kind === "cover") {
+      throw new Error("成片、字幕、封面不能单独重新生成");
+    } else if (old.kind === "video_copy") {
+      const rc = readRoughCut(s)!;
+      const r = await videoCopy({ transcript: cleanedTranscript(s, rc), title: d.title, topic: d.topic, orient: s.orient as Orient, platforms: [der.platform!] }, ai);
+      const c = r.data.platforms[der.platform as keyof typeof r.data.platforms]!;
+      content = { kind: "video_copy", title: c.title, desc: c.desc, tags: c.tags };
+      prompt = r.prompt;
+    } else if ((s.kind === "audio" || s.kind === "video") && old.kind !== "post") {
       ({ content, prompt } = await regenerateAudioItem(s, old));
     } else if (old.kind === "podcast") {
       throw new Error("播客音频不能单独重新生成");
@@ -460,13 +469,15 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
 
   // ───────────────────────── 音频 ─────────────────────────
 
-  /** 新建音频/视频素材：探测文件、把临时文件挪成只读原件 */
+  /** 新建音频/视频素材：探测文件（视频顺便看横竖屏）、把临时文件挪成只读原件。后续处理两者共用 processAudio。 */
   async function createMedia(input: { name: string; tempPath: string }) {
     const info = await probe(input.tempPath);
     if (!info.hasAudio) throw new Error("这个文件里没有声音");
-    if (info.hasVideo) throw new Error("视频会在下一步接入，现在先支持音频");
+    const video = info.hasVideo;
     const s = await db.source.create({
-      data: { kind: "audio", type: "audio", orient: "h", originalName: input.name, filePath: "", mimeType: "audio", durationSec: info.duration, stage: "extract" },
+      data: video
+        ? { kind: "video", type: "talk", orient: info.orient ?? "h", originalName: input.name, filePath: "", mimeType: "video", durationSec: info.duration, stage: "extract" }
+        : { kind: "audio", type: "audio", orient: "h", originalName: input.name, filePath: "", mimeType: "audio", durationSec: info.duration, stage: "extract" },
     });
     const file = await adoptOriginal(s.id, input.name, input.tempPath, root);
     return db.source.update({ where: { id: s.id }, data: { filePath: file.rel, sizeBytes: file.size } });
@@ -557,41 +568,88 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
     return remapTranscript(t, keepSegments(s.durationSec ?? t.duration, rc.cuts, rc.restored));
   }
 
-  async function generateAudio(id: string) {
-    let s = await renderRoughCut(id);
-    s = await get(id);
-    const rc = readRoughCut(s);
-    if (!rc?.rendered || rc.rendered.version !== rc.version) throw new Error("播客音频还没渲染好");
+  /** 由剪好的口播派生的文字和播客：节目说明 + 播客音频、长文、知乎。which 控制要哪些。 */
+  async function spokenExtras(s: Source, rc: RoughCutState, which: { podcast: boolean; article: boolean }) {
     const d = readDraft(s);
     const cleaned = cleanedTranscript(s, rc);
     const text = transcriptText(cleaned);
-    const [art, notes] = await Promise.all([
-      spokenArticle({ text, title: d.title, topic: d.topic }, ai),
-      shownotes({ transcript: cleaned, title: d.title, topic: d.topic }, ai),
-    ]);
-    const articleText = art.data.blocks.map((b) => b.text).join("\n\n");
-    const zh = await zhihu({ text: articleText, title: art.data.title, topic: d.topic }, ai);
-    const w = await words();
+    const out: { platform: PlatformKey | null; content: DerivativeContent; filePath?: string; prompt: { name: string; version: number } }[] = [];
+    if (which.podcast) {
+      const notes = await shownotes({ transcript: cleaned, title: d.title, topic: d.topic }, ai);
+      out.push({ platform: null, content: { kind: "podcast", title: d.title, shownotes: notes.data.text, durationSec: rc.rendered!.duration }, filePath: rc.rendered!.path, prompt: notes.prompt });
+    }
+    if (which.article) {
+      const art = await spokenArticle({ text, title: d.title, topic: d.topic }, ai);
+      const articleText = art.data.blocks.map((b) => b.text).join("\n\n");
+      const zh = await zhihu({ text: articleText, title: art.data.title, topic: d.topic }, ai);
+      out.push({ platform: "gzh", content: { kind: "longform", article: art.data }, prompt: art.prompt });
+      out.push({ platform: "zhihu", content: { kind: "zhihu_article", question: zh.data.question, article: art.data }, prompt: zh.prompt });
+      out.push({ platform: "zhihu", content: { kind: "zhihu_idea", text: zh.data.idea }, prompt: zh.prompt });
+    }
+    return out;
+  }
 
+  /** 清掉旧成品，写入新成品，重算发布任务，进入审核 */
+  async function replaceDerivatives(
+    id: string,
+    items: { platform: PlatformKey | null; content: DerivativeContent; filePath?: string; prompt: { name: string; version: number } | null }[],
+  ) {
+    const w = await words();
     await db.publishJob.deleteMany({ where: { sourceId: id } });
     await db.derivative.deleteMany({ where: { sourceId: id } });
-    const podcast: DerivativeContent = { kind: "podcast", title: d.title, shownotes: notes.data.text, durationSec: rc.rendered.duration };
-    await db.derivative.create({
-      data: {
-        sourceId: id,
-        kind: "podcast",
-        content: json(podcast),
-        filePath: rc.rendered.path,
-        templateKey: notes.prompt.name,
-        templateVersion: notes.prompt.version,
-        hits: json(scanSensitive(derivativeText(podcast), w)),
-      },
-    });
-    await saveDerivative(id, "gzh", { kind: "longform", article: art.data }, art.prompt, w);
-    await saveDerivative(id, "zhihu", { kind: "zhihu_article", question: zh.data.question, article: art.data }, zh.prompt, w);
-    await saveDerivative(id, "zhihu", { kind: "zhihu_idea", text: zh.data.idea }, zh.prompt, w);
+    for (const it of items) {
+      await db.derivative.create({
+        data: {
+          sourceId: id,
+          kind: it.content.kind,
+          platform: it.platform,
+          content: json(it.content),
+          filePath: it.filePath ?? null,
+          templateKey: it.prompt?.name ?? null,
+          templateVersion: it.prompt?.version ?? null,
+          hits: json(scanSensitive(derivativeText(it.content), w)),
+        },
+      });
+    }
     await syncJobs(id);
-    return db.source.update({ where: { id }, data: { status: "review", error: null } });
+    return db.source.update({ where: { id }, data: { status: "review", stage: null, error: null } });
+  }
+
+  async function generateAudio(id: string) {
+    await renderRoughCut(id);
+    const s = await get(id);
+    const rc = readRoughCut(s);
+    if (!rc?.rendered || rc.rendered.version !== rc.version) throw new Error("播客音频还没渲染好");
+    return replaceDerivatives(id, await spokenExtras(s, rc, { podcast: true, article: true }));
+  }
+
+  /** 视频：粗剪成片、字幕、封面、各平台文案；横屏另出长文和播客（按勾选） */
+  async function generateVideo(id: string) {
+    await renderRoughCut(id);
+    const s = await get(id);
+    const rc = readRoughCut(s);
+    if (!rc?.rendered || rc.rendered.version !== rc.version || !s.durationSec) throw new Error("粗剪还没准备好");
+    const d = readDraft(s);
+    const orient = s.orient as Orient;
+    const items = await generateVideoItems({
+      sourceId: id,
+      original: resolveData(s.filePath, root),
+      segments: keepSegments(s.durationSec, rc.cuts, rc.restored),
+      cleaned: cleanedTranscript(s, rc),
+      version: rc.version,
+      orient,
+      title: d.title,
+      topic: d.topic,
+      platforms: d.platforms,
+      root,
+      ai,
+      onStage: (stage) => setStage(id, stage),
+    });
+    const extras = await spokenExtras(s, rc, {
+      podcast: d.platforms.some((k) => PLATFORMS[k].format === "podcast"),
+      article: d.platforms.some((k) => PLATFORMS[k].format === "longform"),
+    });
+    return replaceDerivatives(id, [...items, ...extras]);
   }
 
   async function regenerateAudioItem(s: Source, old: DerivativeContent): Promise<{ content: DerivativeContent; prompt: { name: string; version: number } }> {

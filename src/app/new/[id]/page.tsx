@@ -24,6 +24,13 @@ const STEPS: Record<string, [string, string][]> = {
     ["剪辑并生成试听", "render"],
     ["国内合规检查，判断主题、选平台和标题", "prefill"],
   ],
+  video: [
+    ["抽出声音", "extract"],
+    ["语音识别（逐字时间戳）", "asr"],
+    ["找出停顿、口头禅、重复和说错重来", "cut"],
+    ["生成粗剪试听（先听声音，成片在确认后渲染）", "render"],
+    ["国内合规检查，判断类型、主题、选平台和标题", "prefill"],
+  ],
 };
 
 export default async function DraftPage({ params }: { params: Promise<{ id: string }> }) {
@@ -107,7 +114,8 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
       {head}
       <DraftForm
         id={id}
-        kind={s.kind === "audio" ? "audio" : "text"}
+        kind={s.kind === "audio" || s.kind === "video" ? s.kind : "text"}
+        orient={s.orient === "v" ? "v" : "h"}
         mediaPanel={rc && s.durationSec ? <CutPanel id={id} rc={rc} duration={s.durationSec} /> : undefined}
         draft={draft}
         titleAlts={[prefill.understand.title, ...readStrings(s.titleAlts)]}

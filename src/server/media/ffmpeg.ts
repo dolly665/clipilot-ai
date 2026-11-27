@@ -7,9 +7,9 @@ import type { Segment } from "@/domain/roughcut";
 const FFMPEG = process.env.FFMPEG_PATH || "ffmpeg";
 const FFPROBE = process.env.FFPROBE_PATH || "ffprobe";
 
-function run(cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
+function run(cmd: string, args: string[], opts: { cwd?: string } = {}): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], cwd: opts.cwd });
     let stdout = "";
     let stderr = "";
     p.stdout.on("data", (d) => (stdout += d));
@@ -74,19 +74,84 @@ export async function renderAudioCut(input: string, segments: Segment[], out: st
   const tail = opts.loudnorm ? ";[cat]loudnorm=I=-16:TP=-1.5:LRA=11[out]" : ";[cat]anull[out]";
   const graph = [...parts, concat].join(";") + tail;
 
-  // 片段多时滤镜图很长，写到临时文件里传给 ffmpeg，避免命令行超长
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "qingqing-ff-"));
-  const script = path.join(dir, "graph.txt");
-  try {
-    await fs.writeFile(script, graph);
-    await run(FFMPEG, ["-y", "-v", "error", "-i", input, "-filter_complex_script", script, "-map", "[out]", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "128k", out]);
-  } finally {
-    await fs.rm(dir, { recursive: true, force: true });
-  }
+  await runWithGraph(graph, (script) => ["-y", "-v", "error", "-i", input, "-filter_complex_script", script, "-map", "[out]", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "128k", out]);
 }
 
 /** 测试和开发用：生成一段指定时长的测试音 */
 export async function makeTone(out: string, seconds: number) {
   await fs.mkdir(path.dirname(out), { recursive: true });
   await run(FFMPEG, ["-y", "-v", "error", "-f", "lavfi", "-i", `sine=frequency=440:duration=${seconds}`, "-c:a", "libmp3lame", out]);
+}
+
+/** 把滤镜图写到临时文件里跑 ffmpeg（片段多时命令行会超长） */
+async function runWithGraph(graph: string, args: (script: string) => string[]) {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "qingqing-ff-"));
+  const script = path.join(dir, "graph.txt");
+  try {
+    await fs.writeFile(script, graph);
+    await run(FFMPEG, args(script));
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+}
+
+const H264 = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"];
+
+/**
+ * 视频粗剪：按保留片段剪画面和声音再拼起来，声音接缝淡入淡出、响度统一。
+ * 原文件不动，输出新文件。画面方向按原视频的旋转信息自动摆正。
+ */
+export async function renderVideoCut(input: string, segments: Segment[], out: string) {
+  if (!segments.length) throw new Error("没有可保留的片段");
+  await fs.mkdir(path.dirname(out), { recursive: true });
+  const fade = 0.01;
+  const parts = segments.flatMap((s, i) => {
+    const len = Math.max(s.end - s.start, fade * 2);
+    const range = `start=${s.start.toFixed(3)}:end=${s.end.toFixed(3)}`;
+    return [
+      `[0:v]trim=${range},setpts=PTS-STARTPTS[v${i}]`,
+      `[0:a]atrim=${range},asetpts=PTS-STARTPTS,afade=t=in:d=${fade},afade=t=out:st=${(len - fade).toFixed(3)}:d=${fade}[a${i}]`,
+    ];
+  });
+  const concat = `${segments.map((_, i) => `[v${i}][a${i}]`).join("")}concat=n=${segments.length}:v=1:a=1[vc][ac]`;
+  const graph = [...parts, concat, "[ac]loudnorm=I=-16:TP=-1.5:LRA=11[aout]"].join(";");
+  await runWithGraph(graph, (script) => ["-y", "-v", "error", "-i", input, "-filter_complex_script", script, "-map", "[vc]", "-map", "[aout]", "-ar", "48000", ...H264, out]);
+}
+
+/** 字幕字体：Windows 默认微软雅黑，可在 .env 里用 SUBTITLE_FONT 改 */
+export function subtitleFont() {
+  return process.env.SUBTITLE_FONT || "Microsoft YaHei";
+}
+
+/**
+ * 把 SRT 字幕烧进画面（竖屏和视频号用）。
+ * 在字幕所在目录里运行 ffmpeg、只传文件名，避开 Windows 路径在滤镜参数里的转义问题。
+ */
+export async function burnSubtitles(input: string, srt: string, out: string, orient: "h" | "v") {
+  await fs.mkdir(path.dirname(out), { recursive: true });
+  const style = [`FontName=${subtitleFont()}`, `FontSize=${orient === "v" ? 12 : 20}`, "Bold=1", "PrimaryColour=&H00FFFFFF", "OutlineColour=&H00000000", "BorderStyle=1", "Outline=1.2", "Shadow=0", `MarginV=${orient === "v" ? 60 : 18}`].join(",");
+  await run(FFMPEG, ["-y", "-v", "error", "-i", path.resolve(input), "-vf", `subtitles=${path.basename(srt)}:charenc=UTF-8:force_style='${style}'`, ...H264, path.resolve(out)], { cwd: path.dirname(path.resolve(srt)) });
+}
+
+/** 在指定时间点各抽一帧，存成 JPG（封面候选） */
+export async function extractFrames(input: string, times: number[], outDir: string): Promise<string[]> {
+  await fs.mkdir(outDir, { recursive: true });
+  const outs: string[] = [];
+  for (const [i, t] of times.entries()) {
+    const out = path.join(outDir, `frame-${i + 1}.jpg`);
+    await run(FFMPEG, ["-y", "-v", "error", "-ss", t.toFixed(2), "-i", input, "-frames:v", "1", "-q:v", "2", out]);
+    outs.push(out);
+  }
+  return outs;
+}
+
+/** 测试和开发用：生成一段带测试音的测试视频 */
+export async function makeTestVideo(out: string, seconds: number, size = "320x180") {
+  await fs.mkdir(path.dirname(out), { recursive: true });
+  await run(FFMPEG, [
+    "-y", "-v", "error",
+    "-f", "lavfi", "-i", `testsrc=size=${size}:rate=25:duration=${seconds}`,
+    "-f", "lavfi", "-i", `sine=frequency=440:duration=${seconds}`,
+    "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", out,
+  ]);
 }

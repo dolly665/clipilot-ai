@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { ApproveButton } from "@/components/ApproveButton";
 import { CardDeck } from "@/components/CardDeck";
+import { CoverMaker } from "@/components/CoverMaker";
 import { WechatCopy } from "@/components/WechatCopy";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { CopyButton } from "@/components/CopyButton";
@@ -20,9 +21,13 @@ import { accountName } from "@/domain/brand";
 import { cutStats } from "@/domain/roughcut";
 import { defaultScheduleTime, readDraft, readHits, readRoughCut } from "@/server/sources";
 
-type Tab = "podcast" | "article" | "zhihu" | "posts" | "manuscript" | "original";
+type Tab = "video" | "copy" | "podcast" | "article" | "zhihu" | "posts" | "manuscript" | "original";
 const TEXT_TABS: [Tab, string][] = [["article", "公众号长文"], ["zhihu", "知乎"], ["posts", "短帖"], ["manuscript", "底稿"], ["original", "原文"]];
 const AUDIO_TABS: [Tab, string][] = [["podcast", "播客"], ["article", "公众号长文"], ["zhihu", "知乎"], ["original", "转录稿"]];
+const VIDEO_TABS: [Tab, string][] = [["video", "成片与封面"], ["copy", "各平台文案"], ["podcast", "播客"], ["article", "公众号长文"], ["zhihu", "知乎"], ["original", "转录稿"]];
+const GEN_STAGE: Record<string, string> = { render_video: "正在剪成片…", burn_subtitles: "正在把字幕烧进画面…", cover: "正在挑封面帧…", copy: "正在写各平台文案…" };
+/** 视频的这几个标签只在有对应成品时显示（竖屏不出播客和长文） */
+const VIDEO_TAB_KIND: Partial<Record<Tab, string>> = { podcast: "podcast", article: "longform", zhihu: "zhihu_article" };
 
 export default async function SourceDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const { id } = await params;
@@ -32,8 +37,10 @@ export default async function SourceDetailPage({ params, searchParams }: { param
     include: { derivatives: { orderBy: { createdAt: "asc" } }, jobs: true },
   });
   if (!s) notFound();
-  const isAudio = s.kind === "audio";
-  const TABS = isAudio ? AUDIO_TABS : TEXT_TABS;
+  const isAudio = s.kind === "audio" || s.kind === "video";
+  const TABS = s.kind === "video"
+    ? VIDEO_TABS.filter(([k]) => !VIDEO_TAB_KIND[k] || s.derivatives.length === 0 || s.derivatives.some((d) => d.kind === VIDEO_TAB_KIND[k]))
+    : isAudio ? AUDIO_TABS : TEXT_TABS;
   const tab: Tab = TABS.find(([k]) => k === sp.tab)?.[0] ?? TABS[0]![0];
   const draft = readDraft(s);
   const words = (await prisma.sensitiveWord.findMany()).map((w) => w.word);
@@ -73,9 +80,62 @@ export default async function SourceDetailPage({ params, searchParams }: { param
   );
 
   let body: ReactNode = null;
-  if (s.status === "generating") body = <section className="panel" style={{ textAlign: "center", padding: 40 }}><b>正在生成全部成品…</b><p style={{ color: "var(--muted)" }}>好了会自动刷新。</p></section>;
+  if (s.status === "generating") body = <section className="panel" style={{ textAlign: "center", padding: 40 }}><b>{GEN_STAGE[s.stage ?? ""] ?? "正在生成全部成品…"}</b><p style={{ color: "var(--muted)" }}>{s.kind === "video" ? "视频要重新编码，长视频可能要几分钟。" : ""}好了会自动刷新。</p></section>;
   else if (s.status === "failed") body = <Notice tone="bad" icon="!" title="生成失败">{s.error} <Link href={`/new/${id}`}>回到发布信息重试</Link></Notice>;
-  else if (tab === "podcast") {
+  else if (tab === "video") {
+    const videos = ders.filter((d) => d.c.kind === "video");
+    const sub = ders.find((d) => d.c.kind === "subtitle");
+    const cover = ders.find((d) => d.c.kind === "cover");
+    body = (
+      <div className="grid" style={{ gap: 16 }}>
+        {videos.map((d) => d.c.kind === "video" && (
+          <div className="copycard" key={d.id}>
+            <header>
+              <b>{d.c.variant === "burned" ? "成片 · 字幕烧进画面" : "成片 · 无字幕"}</b>
+              <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{formatTime(d.c.durationSec)}</span>
+            </header>
+            <video controls preload="metadata" style={{ width: "100%", maxHeight: 480, background: "#000", borderRadius: 8 }} src={`/api/derivatives/${d.id}/file`} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                {d.c.variant === "burned" ? (d.c.orient === "v" ? "抖音、小红书、视频号、Shorts 用这个" : "视频号用这个") : d.c.orient === "h" ? "B站、YouTube 用这个，另外上传下面的字幕文件" : "原画面，备用"}
+              </span>
+              <a className="btn sm" href={`/api/derivatives/${d.id}/file?download=1`}>下载视频</a>
+            </div>
+          </div>
+        ))}
+        {sub?.c.kind === "subtitle" && (
+          <div className="copycard">
+            <header><b>字幕文件 SRT</b><span style={{ fontSize: 12, color: "var(--muted)" }}>{sub.c.cues} 条</span></header>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}><a className="btn sm" href={`/api/derivatives/${sub.id}/file?download=1`}>下载字幕</a></div>
+          </div>
+        )}
+        {cover?.c.kind === "cover" && (
+          <div className="copycard">
+            <header><b>封面</b><span style={{ fontSize: 12, color: "var(--muted)" }}>选一帧、改标题，再下载</span></header>
+            <CoverMaker derivativeId={cover.id} frames={cover.c.frames.length} title={cover.c.title} orient={cover.c.orient} name={`${draft.title}-封面`} />
+          </div>
+        )}
+      </div>
+    );
+  } else if (tab === "copy") {
+    body = (
+      <div className="grid g2" style={{ gap: 10 }}>
+        {ders.filter((d) => d.c.kind === "video_copy" && d.platform && isPlatformKey(d.platform)).map((d) => {
+          const pk = d.platform as PlatformKey;
+          const c = d.c as Extract<DerivativeContent, { kind: "video_copy" }>;
+          return (
+            <div className="copycard" key={d.id}>
+              <header><b>{PLATFORMS[pk].name}</b><Chip tone={PLATFORMS[pk].region}>{PLATFORMS[pk].region === "cn" ? "国内" : "海外"}</Chip></header>
+              <div className="cfield"><div className="lab"><span>标题</span><span className="mono">{[...c.title].length} 字</span></div><div className="val">{hl(c.title)}</div></div>
+              {c.desc && <div className="cfield"><div className="lab"><span>简介</span></div><div className="val" style={{ whiteSpace: "pre-wrap" }}>{hl(c.desc)}</div></div>}
+              {c.tags.length > 0 && <div className="cfield"><div className="lab"><span>标签</span></div><div className="val">{c.tags.map((t) => `#${t}`).join(" ")}</div></div>}
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>{meta(d)}{actions(d)}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  } else if (tab === "podcast") {
     const d = ders.find((x) => x.c.kind === "podcast");
     body = d?.c.kind === "podcast" && (
       <div className="grid" style={{ gap: 16 }}>

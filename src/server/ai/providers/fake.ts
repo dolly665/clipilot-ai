@@ -121,6 +121,12 @@ function fakeResult({ task, user }: CompleteRequest): unknown {
       const pick = [times[0] ?? "00:00", times[Math.floor(times.length / 2)] ?? "00:00"];
       return { summary: "【假数据】这期聊聊作者最近的一些想法。", chapters: [{ at: pick[0], title: "开场" }, { at: pick[1], title: "正题" }] };
     }
+    case "video-copy": {
+      const title = /预填标题：(.*)/.exec(user)?.[1]?.trim() ?? "无题";
+      const keys = [...between(user, "要写文案的平台（只写这几个）：", "<<<视频逐句稿").matchAll(/^- (\w+)：/gm)].map((m) => m[1]!);
+      const text = clip(between(user, "<<<视频逐句稿", "视频逐句稿>>>").replace(/\n/g, ""), 60);
+      return { platforms: Object.fromEntries(keys.map((k) => [k, { title: clip(title, 20), desc: `【假数据】${text}`, tags: ["允安", "成长"] }])) };
+    }
     default:
       throw new Error(`fake 提供方不认识任务 ${task}`);
   }

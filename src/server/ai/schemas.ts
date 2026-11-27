@@ -55,3 +55,10 @@ export const ShownotesSchema = z.object({
   chapters: z.array(z.object({ at: z.string(), title: z.string().min(1) })).default([]),
 });
 export type Shownotes = z.infer<typeof ShownotesSchema>;
+
+const VideoCopyItem = z.object({ title: z.string().min(1), desc: z.string().default(""), tags: z.array(z.string()).default([]) });
+export const VideoCopySchema = z.object({
+  platforms: z.object({ bili: VideoCopyItem, sph: VideoCopyItem, dy: VideoCopyItem, xhs: VideoCopyItem, yt: VideoCopyItem, yts: VideoCopyItem }).partial(),
+});
+export type VideoCopyItem = z.infer<typeof VideoCopyItem>;
+export type VideoCopy = z.infer<typeof VideoCopySchema>;

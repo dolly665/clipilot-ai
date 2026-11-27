@@ -4,14 +4,16 @@ import { useState, useTransition } from "react";
 import { Highlighted, Notice } from "@/components/ui";
 import type { PlatformDecision, SensitiveHit } from "@/domain/compliance";
 import { METHOD_LABEL, PLATFORMS, type PlatformKey } from "@/domain/platforms";
-import { TOPICS, type Region } from "@/domain/types";
+import { CONTENT_TYPES, TOPICS, type ContentType, type Region } from "@/domain/types";
 import type { DraftField, DraftFields } from "@/server/sources";
 import { restorePrefill, startGenerate, updateDraft, type ActionResult } from "../../actions";
 
 type Props = {
   id: string;
-  kind: "text" | "audio";
-  /** 音频的粗剪面板（替代文本的原文预览） */
+  kind: "text" | "audio" | "video";
+  /** 视频：横屏 h / 竖屏 v */
+  orient?: "h" | "v";
+  /** 音频、视频的粗剪面板（替代文本的原文预览） */
   mediaPanel?: React.ReactNode;
   draft: DraftFields;
   titleAlts: string[];
@@ -75,7 +77,7 @@ export function DraftForm(p: Props) {
     <div className="grid g-side">
       <div className="grid" style={{ alignContent: "start" }}>
         {p.mediaPanel}
-        {p.kind === "audio" && (
+        {p.kind !== "text" && (
           <section className="panel">
             <h2>识别出的文字 <small>前 400 字，完整稿在审核页</small></h2>
             <div style={{ fontSize: 13, whiteSpace: "pre-wrap", maxHeight: 160, overflow: "hidden" }}>
@@ -116,10 +118,22 @@ export function DraftForm(p: Props) {
             {!p.edited.includes("title") && <span className="hint">AI 判断：{p.reasons.title}</span>}
           </div>
 
-          <div className="field">
-            <span className="lbl">素材类型</span>
-            <div><span className="chip acc">{p.kind === "audio" ? "音频" : "长文本"}</span></div>
-          </div>
+          {p.kind === "video" ? (
+            <div className="field">
+              <span className="lbl">视频类型 <Tag field="type" edited={p.edited} /> <span className="chip">{p.orient === "v" ? "竖屏" : "横屏"}</span></span>
+              <div className="opts">
+                {(["talk", "show", "screen", "vlog"] as ContentType[]).map((t) => (
+                  <button key={t} type="button" className={`opt ${p.draft.type === t ? "on" : ""}`} disabled={pending} onClick={() => patch({ type: t })}>{CONTENT_TYPES[t]}</button>
+                ))}
+              </div>
+              {!p.edited.includes("type") && <span className="hint">AI 判断：{p.reasons.type}</span>}
+            </div>
+          ) : (
+            <div className="field">
+              <span className="lbl">素材类型</span>
+              <div><span className="chip acc">{p.kind === "audio" ? "音频" : "长文本"}</span></div>
+            </div>
+          )}
 
           <div className="field">
             <span className="lbl">主题 <Tag field="topic" edited={p.edited} /></span>
@@ -152,7 +166,13 @@ export function DraftForm(p: Props) {
             )}
           </div>
 
-          {p.kind === "audio" ? (
+          {p.kind === "video" ? (
+            <>
+              {group(<>视频平台 <Tag field="platforms" edited={p.edited} /></>, p.available.filter((k) => PLATFORMS[k].format === "video"))}
+              {group("播客（用剪好的声音）", p.available.filter((k) => PLATFORMS[k].format === "podcast"))}
+              {group("整理成文章发到", p.available.filter((k) => PLATFORMS[k].format === "longform"))}
+            </>
+          ) : p.kind === "audio" ? (
             <>
               {group(<>播客平台 <Tag field="platforms" edited={p.edited} /></>, p.available.filter((k) => PLATFORMS[k].format === "podcast"))}
               {group("整理成文章发到", p.available.filter((k) => PLATFORMS[k].format === "longform"))}
@@ -181,7 +201,9 @@ export function DraftForm(p: Props) {
         <section className="panel">
           <h2>点「确认」之后</h2>
           <div className="row-list" style={{ fontSize: 13 }}>
-            {(p.kind === "audio"
+            {(p.kind === "video"
+              ? [["粗剪成片", "按上面的粗剪剪画面和声音，响度统一"], ["字幕", "SRT 文件；竖屏和视频号另出一版字幕烧进画面"], ["封面", "从成片里挑 3 帧，叠上标题后下载"], ["各平台文案", "每个视频平台各自的标题、简介、标签"], ["横屏另出", "勾了播客、公众号、知乎的话，顺带出播客音频和长文"]]
+              : p.kind === "audio"
               ? [["播客音频", "按上面的粗剪出成品，响度统一到 -16 LUFS"], ["节目说明", "简介 + 章节时间轴"], ["公众号长文", "把讲的内容整理成文章"], ["知乎", "文章 + 一条想法，标题改成问题式"]]
               : [["公众号长文", "排版、小标题、金句"], ["知乎", "完整文章 + 一条想法，标题改成问题式"], ["短帖", "公众号贴图、小红书图文、微博、YouTube 社区帖，各自改写长度和语气"]]
             ).map(([a, b]) => (

@@ -5,7 +5,6 @@ import { useActionState, useRef, useState } from "react";
 import { uploadText, type ActionResult } from "../actions";
 
 const MEDIA = /\.(mp3|m4a|aac|wav|flac|ogg|opus|wma|mp4|mov|m4v|mkv|webm|avi)$/i;
-const VIDEO = /\.(mp4|mov|m4v|mkv|webm|avi)$/i;
 
 /** 音视频走流式上传接口（文件可能很大），带进度；可以中途取消 */
 function uploadMedia(file: File, onProgress: (p: number) => void, xhr: XMLHttpRequest): Promise<{ id?: string; error?: string; aborted?: boolean }> {
@@ -43,10 +42,6 @@ export function UploadForm() {
         if (!file || !MEDIA.test(file.name)) return; // 文本走 server action
         e.preventDefault();
         setMediaError(null);
-        if (VIDEO.test(file.name)) {
-          setMediaError("视频会在下一步接入，现在先支持音频和长文本。");
-          return;
-        }
         setProgress(0);
         const xhr = new XMLHttpRequest();
         xhrRef.current = xhr;
@@ -81,13 +76,13 @@ export function UploadForm() {
         <div style={{ minWidth: 0 }}>
           <b style={{ wordBreak: "break-all" }}>{fileName || "拖入文件，或点这里选择"}</b>
           <div style={{ fontSize: 12, color: "var(--muted)" }}>
-            {progress !== null ? `上传中 ${Math.round(progress * 100)}%` : "音频（mp3、m4a、wav……）或长文本（.txt / .md）。视频即将接入。"}
+            {progress !== null ? `上传中 ${Math.round(progress * 100)}%` : "视频（mp4、mov……）、音频（mp3、m4a、wav……）或长文本（.txt / .md）。原文件不压缩。"}
           </div>
         </div>
         <input
           type="file"
           name="file"
-          accept=".txt,.md,.markdown,text/plain,text/markdown,audio/*,.mp3,.m4a,.wav,.flac,.aac,.ogg"
+          accept=".txt,.md,.markdown,text/plain,text/markdown,audio/*,video/*,.mp3,.m4a,.wav,.flac,.aac,.ogg,.mp4,.mov,.m4v,.mkv,.webm"
           hidden
           onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")}
         />
