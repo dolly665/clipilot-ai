@@ -33,7 +33,15 @@ describe("renderWechatHtml", () => {
     expect(html).toContain("2、怎么做");
   });
 
-  it("没有 footer 就不输出", () => {
-    expect(renderWechatHtml(article, { theme: "chat" })).not.toContain("关注时予清");
+  it("默认文末是允安的引导，footer 传空字符串就不要", () => {
+    const html = renderWechatHtml(article, { theme: "chat" });
+    expect(html).toContain("我是允安<br>");
+    expect(renderWechatHtml(article, { footer: "" })).not.toContain("允安");
+  });
+
+  it("不用纯黑和高饱和的颜色", () => {
+    for (const id of Object.keys(WECHAT_THEMES) as WechatThemeId[]) {
+      expect(renderWechatHtml(article, { theme: id })).not.toMatch(/#000\b|#000000|rgb\(0, ?0, ?0\)|#1DE8DD|#007AAA|#AB1942/i);
+    }
   });
 });

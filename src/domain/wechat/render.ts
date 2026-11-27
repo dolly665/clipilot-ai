@@ -1,9 +1,9 @@
 import type { Article } from "../longform";
-import { DEFAULT_WECHAT_THEME, WECHAT_THEMES, type WechatThemeId } from "./themes";
+import { DEFAULT_WECHAT_FOOTER, DEFAULT_WECHAT_THEME, WECHAT_THEMES, type WechatThemeId } from "./themes";
 
 export type RenderWechatOptions = {
   theme?: WechatThemeId;
-  /** 文末一句，比如引导关注；不传就没有 */
+  /** 文末引导关注；不传用 DEFAULT_WECHAT_FOOTER（允安），传 "" 不要文末。可以用 <br> 换行 */
   footer?: string;
 };
 
@@ -29,6 +29,7 @@ export function renderWechatHtml(article: Article, opts: RenderWechatOptions = {
     else if (b.type === "quote") parts.push(t.quote(s(b.text)));
     else parts.push(t.paragraph(s(b.text)));
   }
-  if (opts.footer) parts.push(t.footer(s(opts.footer)));
+  const footer = opts.footer ?? DEFAULT_WECHAT_FOOTER;
+  if (footer) parts.push(t.footer(footer.split(/<br\s*\/?>/i).map(s).join("<br>")));
   return `<section style="${t.wrap}">${parts.join("")}</section>`;
 }
