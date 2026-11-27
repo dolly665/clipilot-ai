@@ -27,7 +27,18 @@ export function publishRunner(db: PrismaClient, connectors: PublishConnector[] =
       where: { status: "approved", platform: { in: [...byPlatform.keys()] } },
       orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
     });
-    return jobs.filter((j) => byPlatform.get(j.platform)!.uploadEarly || !j.scheduledAt || j.scheduledAt <= now);
+    const ready = await readyPlatforms();
+    return jobs.filter((j) => ready.has(j.platform) && (byPlatform.get(j.platform)!.uploadEarly || !j.scheduledAt || j.scheduledAt <= now));
+  }
+
+  /** 现在能自动发的平台（有连接器，并且 ready() 不是 false） */
+  async function readyPlatforms(): Promise<Set<string>> {
+    const out = new Set<string>();
+    for (const [k, c] of byPlatform) {
+      const ok = c.ready ? await c.ready().catch(() => false) : true;
+      if (ok) out.add(k);
+    }
+    return out;
   }
 
   /** 发一个任务。force：不管排期时间，立刻发（发布中心的「立即发布」） */
@@ -39,6 +50,7 @@ export function publishRunner(db: PrismaClient, connectors: PublishConnector[] =
     const skip = (error: string): RunResult => ({ jobId, platform: job.platform, status: "skipped", error });
     if (job.status !== "approved") return skip(`这条任务现在是「${job.status}」，只有已批准的任务才会发布`);
     if (!connector) return skip(`这个平台还没接自动发布。${MANUAL_FALLBACK}`);
+    if (connector.ready && !(await connector.ready().catch(() => false))) return skip(`还没连接这个平台的账号，请到「平台与规则」连接。${MANUAL_FALLBACK}`);
     if (!opts.force && !connector.uploadEarly && job.scheduledAt && job.scheduledAt > now) return skip("还没到排期时间");
 
     const claimed = await db.publishJob.updateMany({ where: { id: jobId, status: "approved" }, data: { status: "queued", error: null } });
@@ -82,5 +94,5 @@ export function publishRunner(db: PrismaClient, connectors: PublishConnector[] =
 
   const hasConnector = (platform: PlatformKey | string) => byPlatform.has(platform);
 
-  return { dueJobs, runJob, runDue, retry, markManual, hasConnector };
+  return { dueJobs, runJob, runDue, retry, markManual, hasConnector, readyPlatforms };
 }
