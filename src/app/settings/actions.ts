@@ -51,3 +51,9 @@ export async function uploadAudioBackground(_: FormResult, form: FormData): Prom
   revalidatePath("/settings");
   return { ok: "已换好，之后生成的音频视频都用这张" };
 }
+
+export async function disconnectYoutube() {
+  const { youtubeDisconnect } = await import("@/server/publish/youtube");
+  await youtubeDisconnect();
+  revalidatePath("/settings");
+}

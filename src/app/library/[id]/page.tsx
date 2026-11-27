@@ -114,7 +114,7 @@ export default async function SourceDetailPage({ params, searchParams }: { param
         {cover?.c.kind === "cover" && (
           <div className="copycard">
             <header><b>封面</b><span style={{ fontSize: 12, color: "var(--muted)" }}>选一帧、改标题，再下载</span></header>
-            <CoverMaker derivativeId={cover.id} frames={cover.c.frames.length} title={cover.c.title} orient={cover.c.orient} name={`${draft.title}-封面`} />
+            <CoverMaker derivativeId={cover.id} frames={cover.c.frames.length} title={cover.c.title} orient={cover.c.orient} name={`${draft.title}-封面`} saved={!!cover.c.png} editable={s.status !== "approved"} />
           </div>
         )}
       </div>
