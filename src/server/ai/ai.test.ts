@@ -86,3 +86,16 @@ describe("tasks（fake 提供方）", () => {
     expect(s.data.wb.text.length).toBeLessThanOrEqual(140);
   });
 });
+
+describe("polish v2", () => {
+  it("默认用最新版 v2，带上同音错字表，保留语气词的要求在提示词里", async () => {
+    const { loadGlossary } = await import("./tasks");
+    const g = loadGlossary();
+    expect(g).toContain("称 → 嗔");
+    expect(g).not.toContain("听错 → 应为");
+    const p = loadPrompt("polish");
+    expect(p.version).toBe(2);
+    expect(render(p.system, { glossary: g })).toContain("阿耨多罗三藐三菩提");
+    expect(p.system).toContain("「就是」");
+  });
+});

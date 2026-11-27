@@ -1,5 +1,7 @@
 import { assembleArticle, numberParagraphs, splitParagraphs, type Article } from "@/domain/longform";
 import { CONTENT_TYPES, TOPICS, type SourceKind, type Topic } from "@/domain/types";
+import fs from "node:fs";
+import path from "node:path";
 import { charCount, splitForPolish } from "@/domain/chunk";
 import { runTask, runTextTask, type AiProvider, type TaskResult } from "./index";
 import { LongformPlanSchema, ShortPostsSchema, ShownotesSchema, SpokenArticleSchema, TextKindSchema, UnderstandSchema, ZhihuSchema } from "./schemas";
@@ -90,7 +92,7 @@ export async function polishText(text: string, opts: Opts = {}): Promise<PolishR
     const chunk = chunks[i]!;
     const prev = out.at(-1);
     const context = prev ? `上一部分（已理顺）结尾是：「${[...prev].slice(-120).join("")}」，接着往下理，不要重复它。` : "这是全文的开头。";
-    const r = await runTextTask("polish", { text: chunk, context }, { ...opts, maxTokens: 16000 });
+    const r = await runTextTask("polish", { text: chunk, context, glossary: loadGlossary() }, { ...opts, maxTokens: 16000 });
     prompt = r.prompt;
     out.push(r.data);
     const before = charCount(chunk);
@@ -100,4 +102,17 @@ export async function polishText(text: string, opts: Opts = {}): Promise<PolishR
     if (before > 80 && after > before * 1.3) warnings.push(`${where}比原文长不少（${before} 字 → ${after} 字），请检查有没有加进原文没有的内容`);
   }
   return { text: out.join("\n\n"), warnings, prompt };
+}
+
+/** 同音错字表：prompts/polish/glossary.md 里「听错 → 应为」的行 */
+export function loadGlossary(file = path.resolve(/*turbopackIgnore: true*/ process.cwd(), "prompts/polish/glossary.md")): string {
+  try {
+    return fs
+      .readFileSync(/*turbopackIgnore: true*/ file, "utf8")
+      .split("\n")
+      .filter((l) => l.includes("→") && !l.startsWith("#") && !l.includes("听错 → 应为"))
+      .join("\n");
+  } catch {
+    return "（无）";
+  }
 }
