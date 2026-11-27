@@ -1,3 +1,5 @@
+import { accountName } from "../brand";
+
 /**
  * 公众号排版主题。版式从用户给的 4 篇参考文章里提炼，配色统一换成侘寂风（见 templates/wechat/README.md）。
  * 全部是行内样式字符串：公众号编辑器会删掉 <style> 和 class。
@@ -114,4 +116,4 @@ export const WECHAT_THEMES: Record<WechatThemeId, WechatTheme> = { brief, interv
 export const DEFAULT_WECHAT_THEME: WechatThemeId = "essay";
 
 /** 国内账号统一叫「允安」；文末默认引导关注。传 footer: "" 可以去掉 */
-export const DEFAULT_WECHAT_FOOTER = "我是允安<br>愿你被温柔以待，也能自在生长<br>喜欢的话，点个「在看」，我们下次见";
+export const DEFAULT_WECHAT_FOOTER = `我是${accountName("cn")}<br>愿你被温柔以待，也能自在生长<br>喜欢的话，点个「在看」，我们下次见`;
