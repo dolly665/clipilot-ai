@@ -33,7 +33,7 @@ describe("底稿：判断 → 润色 / 原样 → 编辑 → 确认", () => {
     expect(s.textModeReason).toBeTruthy();
     expect(s.text).toBe(SPOKEN);
     const m = await svc.latestManuscript(s.id);
-    expect(m).toMatchObject({ version: 1, origin: "ai", templateKey: "polish", templateVersion: 2 });
+    expect(m).toMatchObject({ version: 1, origin: "ai", templateKey: "polish", templateVersion: 3 });
     expect(m!.body).not.toContain("嗯");
   });
 
