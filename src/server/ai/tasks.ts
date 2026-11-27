@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { charCount, splitForPolish } from "@/domain/chunk";
 import { cleanTranscriptExport } from "@/domain/polish/clean";
-import { runTask, runTextTask, type AiProvider, type TaskResult } from "./index";
+import { providerFromEnv, runTask, runTextTask, type AiProvider, type TaskResult } from "./index";
 import { LongformPlanSchema, ShortPostsSchema, VideoCopySchema, ShownotesSchema, SpokenArticleSchema, TextKindSchema, UnderstandSchema, ZhihuSchema } from "./schemas";
 import { formatTime, type Transcript } from "@/domain/transcript";
 
@@ -84,7 +84,19 @@ export type PolishResult = { text: string; warnings: string[]; prompt: { name: s
  * 理顺润色：长文分块依次处理，每块带上前一块的结尾保持衔接。
  * 每块对比字数：删得太多或加得太多都记一条提醒，让你对照原文检查。
  */
+let polishCached: AiProvider | undefined;
+/**
+ * 润色可以单独指定模型：POLISH_MODEL（同一个提供方，比如 DeepSeek 的 deepseek-reasoner）。
+ * 实测推理模型删口头词、理绕句明显更好，但慢，所以只给润色用。不设就用 AI_MODEL。
+ */
+export function polishProvider(env: Record<string, string | undefined> = process.env): AiProvider | undefined {
+  const model = env.POLISH_MODEL?.trim();
+  if (!model || (env.AI_PROVIDER ?? "fake") === "fake") return undefined;
+  return (polishCached ??= providerFromEnv({ ...env, AI_MODEL: model }));
+}
+
 export async function polishText(text: string, opts: Opts = {}): Promise<PolishResult> {
+  opts = { ...opts, provider: opts.provider ?? polishProvider() };
   // 去掉转写工具导出时加的 AI 摘要、说话人和时间行（原文本身不改，只影响底稿）
   const cleaned = cleanTranscriptExport(text);
   const chunks = splitForPolish(cleaned.text, polishChunkChars());
