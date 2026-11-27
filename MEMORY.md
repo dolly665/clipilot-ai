@@ -39,3 +39,4 @@
 - 2026-11-27 B：**国内账号统一叫「允安」**（海外仍是时予清）。公众号文末默认加允安的引导关注（`DEFAULT_WECHAT_FOOTER`），`renderWechatHtml` 不传 footer 就自动带上。
 - 2026-11-27 B：用户给了一份录音转写稿和认可的润色版，语气要点和同音错字表记在 `templates/voice/README.md`。润色时保留口头推进词和自问自答，只改错字、卡顿、标点、分段。
 - 2026-11-27 A：润色提示词升到 v2（依据 `templates/voice/README.md`）：保留「那」「就是」「其实」等推进词，一段一到两句，问句单独成段，列举先单独一行做标签。同音错字表独立成 `prompts/polish/glossary.md`，发现新错字直接加一行，不用升版本。
+- 2026-11-27 A：用户确认：国内账号（含小宇宙、喜马拉雅播客）叫「允安」，海外叫「时予清」，清清界面称呼不改。代码里统一用 `src/domain/brand.ts` 的 `accountName(region)`；图卡署名按平台区域取；提示词出了新版本（understand v2、short-posts v3、spoken-article v2、shownotes v2），旧版本保留。

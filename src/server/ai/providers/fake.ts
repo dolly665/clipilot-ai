@@ -96,7 +96,7 @@ function fakeResult({ task, user }: CompleteRequest): unknown {
       const deck = { cover: { title: clip(title, 14), subtitle: "假数据生成的副标题" }, cards: cards.length ? cards : [{ title: "要点", body: "（空）" }] };
       return {
         gzhp: { title: clip(title, 20), text: clip(text, 300), ...deck },
-        xhsn: { title: clip(title, 20), text: clip(text, 500), tags: ["时予清", "成长"], ...deck },
+        xhsn: { title: clip(title, 20), text: clip(text, 500), tags: ["允安", "成长"], ...deck },
         wb: { text: clip(text, 140) },
         ytc: { text: clip(text, 300) },
       };

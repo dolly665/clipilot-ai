@@ -55,7 +55,7 @@ describe("runTask", () => {
     };
     const r = await runTask("understand", { kind: "text", text: "x", types: "", topics: "" }, UnderstandSchema, { provider });
     expect(r.data.title).toBe("t");
-    expect(r.prompt).toEqual({ name: "understand", version: 1 });
+    expect(r.prompt).toEqual({ name: "understand", version: 2 });
     expect(calls[1]).toContain("上一次的输出不符合要求");
   });
   it("两次都失败则报 AiError", async () => {
@@ -97,5 +97,18 @@ describe("polish v2", () => {
     expect(p.version).toBe(2);
     expect(render(p.system, { glossary: g })).toContain("阿耨多罗三藐三菩提");
     expect(p.system).toContain("「就是」");
+  });
+});
+
+describe("账号名", () => {
+  it("国内用允安，海外用时予清；最新版提示词都按这个写", async () => {
+    const { accountName } = await import("@/domain/brand");
+    expect(accountName("cn")).toBe("允安");
+    expect(accountName("os")).toBe("时予清");
+    expect(loadPrompt("shownotes").system).toContain("播客「允安」");
+    expect(loadPrompt("short-posts").system).toMatch(/允安.*时予清/);
+    for (const n of ["understand", "spoken-article", "polish"]) {
+      expect(loadPrompt(n).system).not.toMatch(/你是(自媒体账号「)?时予清/);
+    }
   });
 });

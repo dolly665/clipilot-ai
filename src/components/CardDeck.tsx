@@ -31,7 +31,7 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): st
   return lines;
 }
 
-function drawCard(canvas: HTMLCanvasElement, theme: (typeof THEMES)[keyof typeof THEMES], page: number, total: number, card: { title: string; body?: string; subtitle?: string }, isCover: boolean) {
+function drawCard(canvas: HTMLCanvasElement, theme: (typeof THEMES)[keyof typeof THEMES], page: number, total: number, card: { title: string; body?: string; subtitle?: string }, isCover: boolean, signature: string) {
   const ctx = canvas.getContext("2d")!;
   canvas.width = W;
   canvas.height = H;
@@ -74,21 +74,21 @@ function drawCard(canvas: HTMLCanvasElement, theme: (typeof THEMES)[keyof typeof
   }
   ctx.fillStyle = theme.soft;
   ctx.font = `500 34px ${SANS}`;
-  ctx.fillText("时予清", pad, H - 100);
+  ctx.fillText(signature, pad, H - 100);
   ctx.textAlign = "right";
   ctx.fillText(`${page} / ${total}`, W - pad, H - 100);
   ctx.textAlign = "left";
 }
 
 /** 3:4 图卡：在浏览器里画，用页面已加载的中文字体，可单张或全部下载 PNG */
-export function CardDeck({ deck, platform, name }: { deck: Deck; platform: "xhsn" | "gzhp"; name: string }) {
+export function CardDeck({ deck, platform, name, signature }: { deck: Deck; platform: "xhsn" | "gzhp"; name: string; signature: string }) {
   const refs = useRef<(HTMLCanvasElement | null)[]>([]);
   const [ready, setReady] = useState(false);
   const pages = [{ ...deck.cover, isCover: true }, ...deck.cards.map((c) => ({ ...c, isCover: false }))];
 
   useEffect(() => {
     let cancelled = false;
-    const allText = [deck.cover.title, deck.cover.subtitle, ...deck.cards.flatMap((c) => [c.title, c.body]), "时予清0123456789/"].join("");
+    const allText = [deck.cover.title, deck.cover.subtitle, ...deck.cards.flatMap((c) => [c.title, c.body]), signature + "0123456789/"].join("");
     // 先按图卡上实际用到的字加载字体子集，否则画布会用后备字体
     Promise.all([
       document.fonts.load(`700 76px "Noto Serif SC"`, allText),
@@ -100,13 +100,13 @@ export function CardDeck({ deck, platform, name }: { deck: Deck; platform: "xhsn
         if (cancelled) return;
         pages.forEach((p, i) => {
           const c = refs.current[i];
-          if (c) drawCard(c, THEMES[platform], i + 1, pages.length, p, p.isCover);
+          if (c) drawCard(c, THEMES[platform], i + 1, pages.length, p, p.isCover, signature);
         });
         setReady(true);
       });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(deck), platform]);
+  }, [JSON.stringify(deck), platform, signature]);
 
   const download = (i: number) =>
     new Promise<void>((resolve) => {

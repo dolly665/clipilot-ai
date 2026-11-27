@@ -15,6 +15,7 @@ import { isPlatformKey, METHOD_LABEL, PLATFORMS, type PlatformKey } from "@/doma
 import { formatTime } from "@/domain/transcript";
 import { CONTENT_TYPES, ROUGH_CUT_LEVELS } from "@/domain/types";
 import { prisma } from "@/server/app";
+import { accountName } from "@/domain/brand";
 import { cutStats } from "@/domain/roughcut";
 import { defaultScheduleTime, readDraft, readHits, readRoughCut } from "@/server/sources";
 
@@ -139,7 +140,7 @@ export default async function SourceDetailPage({ params, searchParams }: { param
               {(pk === "xhsn" || pk === "gzhp") && c.cover && c.cards && c.cards.length > 0 && (
                 <div className="cfield">
                   <div className="lab"><span>图卡</span></div>
-                  <CardDeck deck={{ cover: c.cover, cards: c.cards }} platform={pk} name={`${draft.title}-${PLATFORMS[pk].name}`} />
+                  <CardDeck deck={{ cover: c.cover, cards: c.cards }} platform={pk} name={`${draft.title}-${PLATFORMS[pk].name}`} signature={accountName(PLATFORMS[pk].region)} />
                 </div>
               )}
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>{meta(d)}{actions(d)}</div>
