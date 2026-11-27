@@ -1,7 +1,7 @@
 import { AiError, type AiProvider, type CompleteRequest } from "../types";
 
 /**
- * OpenAI 与通义千问（DashScope 兼容模式）共用的 Chat Completions 调用。
+ * OpenAI、通义千问（DashScope 兼容模式）以及 DeepSeek 等兼容接口共用的 Chat Completions 调用。
  * 从旧版 legacy/index.html 的 openaiCall / qwenCall 改写成服务端版本。
  */
 export function createOpenAiCompatibleProvider(opts: {
@@ -15,15 +15,18 @@ export function createOpenAiCompatibleProvider(opts: {
     model: opts.model,
     async complete(req: CompleteRequest) {
       if (!opts.apiKey) throw new AiError(`${opts.name} 密钥未配置`);
+      const json = req.format !== "text";
+      // json_object 模式要求提示词里出现 json 字样（DeepSeek、OpenAI 都会检查），缺了就补一句
+      const system = json && !/json/i.test(req.system + req.user) ? `${req.system}\n\n只输出 JSON。` : req.system;
       const res = await fetch(`${opts.baseUrl}/chat/completions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${opts.apiKey}` },
         body: JSON.stringify({
           model: opts.model,
           max_tokens: req.maxTokens ?? 8000,
-          response_format: { type: "json_object" },
+          ...(json ? { response_format: { type: "json_object" } } : {}),
           messages: [
-            { role: "system", content: req.system },
+            { role: "system", content: system },
             { role: "user", content: req.user },
           ],
         }),

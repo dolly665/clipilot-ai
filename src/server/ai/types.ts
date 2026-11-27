@@ -4,6 +4,8 @@ export type CompleteRequest = {
   system: string;
   user: string;
   maxTokens?: number;
+  /** 期望的输出：json（结构化任务）或 text（润色这类纯文字）。不填按 json。 */
+  format?: "json" | "text";
 };
 
 export interface AiProvider {

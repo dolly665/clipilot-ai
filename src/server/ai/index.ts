@@ -65,7 +65,7 @@ export async function runTask<S extends z.ZodType>(
 
   let lastError = "";
   for (let attempt = 0; attempt < 2; attempt++) {
-    const text = await provider.complete({ task: name, system, user, maxTokens: opts.maxTokens });
+    const text = await provider.complete({ task: name, system, user, maxTokens: opts.maxTokens, format: "json" });
     try {
       const data = schema.parse(extractJson(text));
       return { data, prompt: { name, version: prompt.version }, provider: provider.name, model: provider.model };
@@ -91,7 +91,7 @@ export async function runTextTask(
   const system = render(prompt.system, vars);
   const user = render(prompt.user, vars);
   for (let attempt = 0; attempt < 2; attempt++) {
-    const raw = await provider.complete({ task: name, system, user, maxTokens: opts.maxTokens });
+    const raw = await provider.complete({ task: name, system, user, maxTokens: opts.maxTokens, format: "text" });
     const text = raw.trim().replace(/^```[a-z]*\n?([\s\S]*?)\n?```$/i, "$1").trim();
     if (text) return { data: text, prompt: { name, version: prompt.version }, provider: provider.name, model: provider.model };
   }
