@@ -202,9 +202,10 @@ mark{background:var(--bad-soft);color:var(--bad);border-radius:3px;padding:0 2px
 .ev span{color:var(--muted)}
 
 /* templates & accounts */
-.tpl-list button{width:100%;text-align:left;border:0;background:transparent;padding:9px 10px;border-radius:8px;display:flex;justify-content:space-between;gap:8px}
-.tpl-list button.on{background:var(--accent-soft);color:var(--accent);font-weight:500}
-.tpl-list button:hover:not(.on){background:var(--surface-2)}
+.tpl-list a{color:inherit;text-decoration:none}
+.tpl-list button,.tpl-list a{width:100%;text-align:left;border:0;background:transparent;padding:9px 10px;border-radius:8px;display:flex;justify-content:space-between;gap:8px}
+.tpl-list button.on,.tpl-list a.on{background:var(--accent-soft);color:var(--accent);font-weight:500}
+.tpl-list button:hover:not(.on),.tpl-list a:hover:not(.on){background:var(--surface-2)}
 .tpl-list .grp{font-size:11px;letter-spacing:.08em;color:var(--muted);padding:12px 10px 4px}
 textarea.code{width:100%;min-height:380px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);padding:14px;font-family:var(--f-mono);font-size:13px;line-height:1.7;resize:vertical}
 .vars{display:flex;flex-wrap:wrap;gap:6px}
