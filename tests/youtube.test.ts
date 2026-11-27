@@ -122,3 +122,22 @@ describe("YouTube 上传", () => {
     expect(sn.tags.join(",").length).toBeLessThanOrEqual(500);
   });
 });
+
+describe("接进发布执行器", () => {
+  it("批准后马上上传（不等排期），状态变已发布并写入链接", { timeout: 120_000 }, async () => {
+    const { publishRunner } = await import("@/server/publish/runner");
+    const { youtubeConnectors } = await import("@/server/publish/youtube");
+    vi.stubEnv("DATA_DIR", db.dir);
+    await writeCredential("youtube", { refreshToken: "rt", connectedAt: "" }, db.dir);
+    const { s } = await approvedVideo("320x180");
+    fakeGoogle();
+    const runner = publishRunner(db.prisma, youtubeConnectors);
+    const results = await runner.runDue(new Date());
+    const mine = results.filter((r) => r.platform === "yt");
+    expect(mine.length).toBeGreaterThan(0);
+    const job = await db.prisma.publishJob.findFirstOrThrow({ where: { sourceId: s.id, platform: "yt" } });
+    expect(job).toMatchObject({ status: "published", url: "https://www.youtube.com/watch?v=VID123" });
+    // 其他平台没有连接器，保持已批准，等你手动发
+    expect((await db.prisma.publishJob.findFirstOrThrow({ where: { sourceId: s.id, platform: "bili" } })).status).toBe("approved");
+  });
+});
