@@ -38,7 +38,9 @@
 | 改进润色（用户改派） | 进行中 | polish v6 + deepseek-reasoner；日常样本相似度 0.74（认可版 1.00）。等用户再给认可样本继续调 |
 | 接手文字线和发布流程（用户确认，原 C） | 完成 | 范围见 MEMORY.md 分工表 |
 | 用 DeepSeek 跑一遍「底稿 → 长文 / 知乎 / 短帖 / 图卡」 | 待办 | 从 A 转来；用 xiuxing、richang 两个样本 |
-| 发布流程（第二阶段）：公众号草稿箱接口、YouTube API、国内播客 RSS | 待办 | 公众号接口权限要先请用户截图确认；接口要固定 IP，只能在用户本机跑 |
+| 发布执行器 + 发布中心页面（第二阶段） | 完成 | `src/server/publish/runner.ts`（approved → queued → uploading → published / failed，抢占防重发，失败提示手动发）、`src/instrumentation.ts` 每分钟扫一次（`PUBLISH_LOOP=off` 关闭）、`/publish` 页：立即发布、重试、我已手动发布 |
+| 各平台连接器 | 由 A 做 | A 写 `src/server/publish/<平台>.ts` 并在 `registry.ts` 加一行；接口见 `src/server/publish/types.ts` |
+| 公众号草稿箱 | 待办 | 先请用户在公众号后台截图「接口权限」；接口要固定 IP，只能在用户本机跑 |
 
 ## 跨会话请求
 
