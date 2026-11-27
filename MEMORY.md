@@ -47,3 +47,4 @@
 - 2026-11-27 A：用户本机用 DeepSeek（AI_PROVIDER=openai + OPENAI_BASE_URL）。修了一个 bug：OpenAI 兼容接口原来对所有任务都强制 JSON 输出，润色这种纯文字任务被 DeepSeek 拒绝；现在 `CompleteRequest.format` 区分 json / text。
 - 2026-11-27 B：用户说本机测试的润色效果不好，把润色改派给 B。B 出了 polish v3（用「转写原文 → 认可版」三组对照做示例；口头词只留一半左右；合并转写工具在停顿处乱加的句号），加了转写导出稿清理 `cleanTranscriptExport`（去 AI 摘要、免责声明、说话人时间行）和评测脚本 `scripts/polish-eval.ts`。`polishText` 本身（`src/server/ai/tasks.ts`）仍归 A。
 - 2026-11-27 B：**文字处理统一用 DeepSeek**（用户原话「文字这块处理你以后都用deepseek就行」；之前本机用的是豆包）。配置：`AI_PROVIDER=openai`、`AI_MODEL=deepseek-chat`、`OPENAI_BASE_URL=https://api.deepseek.com/v1`。云端会话的 DeepSeek 密钥存在环境的网络密钥里，由代理注入，`OPENAI_API_KEY` 填占位符 `proxy-injected` 即可。
+- 2026-11-27 B：DeepSeek 润色实测（样本 xiuxing，和认可版对比）：v2 平均每段 82 字、相似度 0.74；v3 73 字、0.76；v4 48 字、0.82；v4 + 每块 800 字 45 字、0.83，而且「然后」减半（日常样本 29 → 14 处）。结论：用 v4，润色分块调小到 800 字左右。DeepSeek 偏保守，口头词仍比认可版多。
