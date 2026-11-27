@@ -4,11 +4,16 @@ import { derivativeText, JOB_DERIVATIVE, type DerivativeContent } from "@/domain
 import { isPlatformKey, PLATFORMS, type PlatformKey } from "@/domain/platforms";
 import { CONTENT_TYPES, isTopic, REGIONS, type ContentType, type Orient, type Region, type SourceKind, type Topic } from "@/domain/types";
 import type { Prisma, PrismaClient, Source } from "@/generated/prisma/client";
+import { detectCuts, keepSegments, remapTranscript, totalLength, type Cut } from "@/domain/roughcut";
+import { transcriptText, type Transcript } from "@/domain/transcript";
+import type { RoughCutLevel } from "@/domain/types";
 import type { AiProvider } from "./ai";
 import type { Understand } from "./ai/schemas";
-import { layoutLongform, shortPosts, understand, zhihu } from "./ai/tasks";
+import { layoutLongform, shortPosts, shownotes, spokenArticle, understand, zhihu } from "./ai/tasks";
+import { defaultAsr, type AsrProvider } from "./asr";
 import { dataDir } from "./env";
-import { saveOriginal } from "./storage";
+import { extractSpeechAudio, probe, renderAudioCut } from "./media/ffmpeg";
+import { adoptOriginal, derivativePath, resolveData, saveOriginal, workPath } from "./storage";
 
 export type SourceStatus = "processing" | "prefilled" | "generating" | "review" | "approved" | "failed";
 
@@ -62,10 +67,30 @@ export function sourceDecisions(s: Source, extraHits: SensitiveHit[] = []): Plat
   });
 }
 
-export type Deps = { db: PrismaClient; provider?: AiProvider; root?: string };
+/** 粗剪状态：检测出的每一刀、用户恢复了哪几刀、当前渲染好的试听文件 */
+export type RoughCutState = {
+  level: RoughCutLevel;
+  cuts: Cut[];
+  restored: string[];
+  version: number;
+  rendered?: { version: number; path: string; duration: number };
+};
 
-export function sourceService({ db, provider, root = dataDir() }: Deps) {
+export function readRoughCut(s: Source): RoughCutState | null {
+  return (s.roughCut as unknown as RoughCutState | null) ?? null;
+}
+export function readTranscript(s: Source): Transcript | null {
+  return (s.transcript as unknown as Transcript | null) ?? null;
+}
+
+export const AUDIO_EXTS = /\.(mp3|m4a|aac|wav|flac|ogg|opus|wma)$/i;
+export const VIDEO_EXTS = /\.(mp4|mov|m4v|mkv|webm|avi)$/i;
+
+export type Deps = { db: PrismaClient; provider?: AiProvider; asr?: AsrProvider; root?: string };
+
+export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
   const ai = { provider };
+  const getAsr = () => asr ?? defaultAsr();
 
   async function words(): Promise<string[]> {
     return (await db.sensitiveWord.findMany({ select: { word: true } })).map((w) => w.word);
@@ -223,7 +248,8 @@ export function sourceService({ db, provider, root = dataDir() }: Deps) {
   async function generate(id: string) {
     try {
       const s = await get(id);
-      if (s.kind !== "text") throw new Error("音频、视频的生成在后续步骤接入");
+      if (s.kind === "audio") return await generateAudio(id);
+      if (s.kind !== "text") throw new Error("视频的生成在后续步骤接入");
       const d = readDraft(s);
       const input = { text: s.text ?? "", title: d.title, topic: d.topic };
       const [lf, zh, sp] = await Promise.all([layoutLongform(input, ai), zhihu(input, ai), shortPosts(input, ai)]);
@@ -257,7 +283,11 @@ export function sourceService({ db, provider, root = dataDir() }: Deps) {
     let content: DerivativeContent;
     let prompt: { name: string; version: number };
 
-    if (old.kind === "longform" || old.kind === "zhihu_article") {
+    if (s.kind === "audio" && old.kind !== "post") {
+      ({ content, prompt } = await regenerateAudioItem(s, old));
+    } else if (old.kind === "podcast") {
+      throw new Error("播客音频不能单独重新生成");
+    } else if (old.kind === "longform" || old.kind === "zhihu_article") {
       const r = await layoutLongform(input, ai);
       prompt = r.prompt;
       content = old.kind === "longform" ? { kind: "longform", article: r.data } : { ...old, article: r.data };
@@ -298,7 +328,164 @@ export function sourceService({ db, provider, root = dataDir() }: Deps) {
     return r.count;
   }
 
-  return { createText, prefill, updateDraft, restorePrefill, startGenerate, generate, regenerate, approve, syncJobs };
+
+  // ───────────────────────── 音频 ─────────────────────────
+
+  /** 新建音频/视频素材：探测文件、把临时文件挪成只读原件 */
+  async function createMedia(input: { name: string; tempPath: string }) {
+    const info = await probe(input.tempPath);
+    if (!info.hasAudio) throw new Error("这个文件里没有声音");
+    if (info.hasVideo) throw new Error("视频会在下一步接入，现在先支持音频");
+    const s = await db.source.create({
+      data: { kind: "audio", type: "audio", orient: "h", originalName: input.name, filePath: "", mimeType: "audio", durationSec: info.duration, stage: "extract" },
+    });
+    const file = await adoptOriginal(s.id, input.name, input.tempPath, root);
+    return db.source.update({ where: { id: s.id }, data: { filePath: file.rel, sizeBytes: file.size } });
+  }
+
+  async function setStage(id: string, stage: string | null) {
+    await db.source.update({ where: { id }, data: { stage } });
+  }
+
+  /** 按当前粗剪状态渲染试听 / 成品音频。只有版本仍是最新时才写回，避免快速连点时旧结果覆盖新结果。 */
+  async function renderRoughCut(id: string) {
+    const s = await get(id);
+    const rc = readRoughCut(s);
+    if (!rc || !s.durationSec) return s;
+    if (rc.rendered?.version === rc.version) return s;
+    const keep = keepSegments(s.durationSec, rc.cuts, rc.restored);
+    const rel = derivativePath(id, `podcast-v${rc.version}.mp3`);
+    await renderAudioCut(resolveData(s.filePath, root), keep, resolveData(rel, root), { loudnorm: true });
+    const latest = await get(id);
+    const now = readRoughCut(latest);
+    if (!now || now.version !== rc.version) return latest;
+    const next: RoughCutState = { ...now, rendered: { version: rc.version, path: rel, duration: totalLength(keep) } };
+    return db.source.update({ where: { id }, data: { roughCut: json(next) } });
+  }
+
+  /** 音频处理：抽音轨 → 语音识别 → 粗剪 → 渲染试听 → 合规 + 预填。失败时记下原因。 */
+  async function processAudio(id: string) {
+    try {
+      let s = await get(id);
+      const original = resolveData(s.filePath, root);
+      await setStage(id, "extract");
+      const speech = resolveData(workPath(id, "speech.mp3"), root);
+      await extractSpeechAudio(original, speech);
+
+      await setStage(id, "asr");
+      const t = await getAsr().transcribe(speech, { durationSec: s.durationSec ?? undefined });
+      if (!t.words.length) throw new Error("没有识别出说话内容");
+
+      await setStage(id, "cut");
+      const level: RoughCutLevel = "standard";
+      const rc: RoughCutState = { level, cuts: detectCuts(t, level), restored: [], version: 1 };
+      s = await db.source.update({
+        where: { id },
+        data: { transcript: json(t), text: transcriptText(t), durationSec: t.duration || s.durationSec, roughCut: json(rc), roughCutLevel: level },
+      });
+
+      await setStage(id, "render");
+      await renderRoughCut(id);
+
+      await setStage(id, "prefill");
+      const r = await prefill(id);
+      if (r.status === "failed") return r;
+      await setStage(id, null);
+      return get(id);
+    } catch (e) {
+      await fail(id, e);
+      return get(id);
+    }
+  }
+
+  async function editableRoughCut(id: string) {
+    const s = await get(id);
+    if (s.status !== "prefilled") throw new Error("只有还没开始生成的内容可以调整粗剪");
+    const rc = readRoughCut(s);
+    const t = readTranscript(s);
+    if (!rc || !t) throw new Error("这条内容没有粗剪");
+    return { s, rc, t };
+  }
+
+  /** 换剪的力度：重新检测，之前恢复的刀清空 */
+  async function setCutLevel(id: string, level: RoughCutLevel) {
+    const { rc, t } = await editableRoughCut(id);
+    const next: RoughCutState = { level, cuts: detectCuts(t, level), restored: [], version: rc.version + 1, rendered: rc.rendered };
+    return db.source.update({ where: { id }, data: { roughCut: json(next), roughCutLevel: level } });
+  }
+
+  /** 单独恢复 / 重新剪掉某一刀 */
+  async function toggleCut(id: string, cutId: string) {
+    const { rc } = await editableRoughCut(id);
+    if (!rc.cuts.some((c) => c.id === cutId)) throw new Error("没有这一刀");
+    const restored = rc.restored.includes(cutId) ? rc.restored.filter((x) => x !== cutId) : [...rc.restored, cutId];
+    const next: RoughCutState = { ...rc, restored, version: rc.version + 1 };
+    return db.source.update({ where: { id }, data: { roughCut: json(next) } });
+  }
+
+  function cleanedTranscript(s: Source, rc: RoughCutState): Transcript {
+    const t = readTranscript(s)!;
+    return remapTranscript(t, keepSegments(s.durationSec ?? t.duration, rc.cuts, rc.restored));
+  }
+
+  async function generateAudio(id: string) {
+    let s = await renderRoughCut(id);
+    s = await get(id);
+    const rc = readRoughCut(s);
+    if (!rc?.rendered || rc.rendered.version !== rc.version) throw new Error("播客音频还没渲染好");
+    const d = readDraft(s);
+    const cleaned = cleanedTranscript(s, rc);
+    const text = transcriptText(cleaned);
+    const [art, notes] = await Promise.all([
+      spokenArticle({ text, title: d.title, topic: d.topic }, ai),
+      shownotes({ transcript: cleaned, title: d.title, topic: d.topic }, ai),
+    ]);
+    const articleText = art.data.blocks.map((b) => b.text).join("\n\n");
+    const zh = await zhihu({ text: articleText, title: art.data.title, topic: d.topic }, ai);
+    const w = await words();
+
+    await db.publishJob.deleteMany({ where: { sourceId: id } });
+    await db.derivative.deleteMany({ where: { sourceId: id } });
+    const podcast: DerivativeContent = { kind: "podcast", title: d.title, shownotes: notes.data.text, durationSec: rc.rendered.duration };
+    await db.derivative.create({
+      data: {
+        sourceId: id,
+        kind: "podcast",
+        content: json(podcast),
+        filePath: rc.rendered.path,
+        templateKey: notes.prompt.name,
+        templateVersion: notes.prompt.version,
+        hits: json(scanSensitive(derivativeText(podcast), w)),
+      },
+    });
+    await saveDerivative(id, "gzh", { kind: "longform", article: art.data }, art.prompt, w);
+    await saveDerivative(id, "zhihu", { kind: "zhihu_article", question: zh.data.question, article: art.data }, zh.prompt, w);
+    await saveDerivative(id, "zhihu", { kind: "zhihu_idea", text: zh.data.idea }, zh.prompt, w);
+    await syncJobs(id);
+    return db.source.update({ where: { id }, data: { status: "review", error: null } });
+  }
+
+  async function regenerateAudioItem(s: Source, old: DerivativeContent): Promise<{ content: DerivativeContent; prompt: { name: string; version: number } }> {
+    const rc = readRoughCut(s)!;
+    const d = readDraft(s);
+    const cleaned = cleanedTranscript(s, rc);
+    if (old.kind === "podcast") {
+      const r = await shownotes({ transcript: cleaned, title: d.title, topic: d.topic }, ai);
+      return { content: { ...old, shownotes: r.data.text }, prompt: r.prompt };
+    }
+    if (old.kind === "zhihu_idea") {
+      const r = await zhihu({ text: transcriptText(cleaned), title: d.title, topic: d.topic }, ai);
+      return { content: { kind: "zhihu_idea", text: r.data.idea }, prompt: r.prompt };
+    }
+    const r = await spokenArticle({ text: transcriptText(cleaned), title: d.title, topic: d.topic }, ai);
+    const content: DerivativeContent = old.kind === "zhihu_article" ? { ...old, article: r.data } : { kind: "longform", article: r.data };
+    return { content, prompt: r.prompt };
+  }
+
+  return {
+    createText, prefill, updateDraft, restorePrefill, startGenerate, generate, regenerate, approve, syncJobs,
+    createMedia, processAudio, renderRoughCut, setCutLevel, toggleCut,
+  };
 }
 
 /** 默认排期：今晚 20:00；已经过了就是明晚 20:00 */

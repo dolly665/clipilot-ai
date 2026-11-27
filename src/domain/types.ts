@@ -11,7 +11,7 @@ export const CONTENT_TYPES = {
   show: "口播 + B roll",
   screen: "录屏教学",
   vlog: "Vlog",
-  audio: "音频 + B roll",
+  audio: "音频",
   text: "长文本",
 } as const;
 export type ContentType = keyof typeof CONTENT_TYPES;

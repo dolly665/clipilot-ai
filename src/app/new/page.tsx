@@ -18,7 +18,7 @@ export default function NewSourcePage() {
             <h2>三种素材怎么走</h2>
             <div className="row-list" style={{ fontSize: 13 }}>
               <div><div className="t"><b>长文本</b><span>排版 → 公众号、知乎；拆成短帖 → 公众号贴图、小红书图文、微博、YouTube 社区帖</span></div><span className="chip acc">现在可用</span></div>
-              <div><div className="t"><b>音频</b><span>去口误 → 播客平台；再派生长文</span></div><span className="chip">即将接入</span></div>
+              <div><div className="t"><b>音频</b><span>去口误 → 播客平台；再整理成长文 → 公众号、知乎</span></div><span className="chip acc">现在可用</span></div>
               <div><div className="t"><b>视频</b><span>粗剪 + 字幕 → 视频平台，再派生播客和长文</span></div><span className="chip">即将接入</span></div>
             </div>
           </section>

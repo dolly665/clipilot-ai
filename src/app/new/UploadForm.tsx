@@ -1,15 +1,55 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import { uploadText, type ActionResult } from "../actions";
+
+const MEDIA = /\.(mp3|m4a|aac|wav|flac|ogg|opus|wma|mp4|mov|m4v|mkv|webm|avi)$/i;
+
+/** 音视频走流式上传接口（文件可能很大），带进度 */
+function uploadMedia(file: File, onProgress: (p: number) => void): Promise<{ id?: string; error?: string }> {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/upload?name=${encodeURIComponent(file.name)}`);
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => {
+      try {
+        resolve(JSON.parse(xhr.responseText));
+      } catch {
+        resolve({ error: `上传失败（${xhr.status}）` });
+      }
+    };
+    xhr.onerror = () => resolve({ error: "上传失败，网络错误" });
+    xhr.send(file);
+  });
+}
 
 export function UploadForm() {
   const [state, action, pending] = useActionState<ActionResult, FormData>(uploadText, {});
   const [fileName, setFileName] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const router = useRouter();
 
   return (
-    <form action={action}>
+    <form
+      action={action}
+      onSubmit={async (e) => {
+        const input = e.currentTarget.querySelector("input[type=file]") as HTMLInputElement | null;
+        const file = input?.files?.[0];
+        if (!file || !MEDIA.test(file.name)) return; // 文本走 server action
+        e.preventDefault();
+        setMediaError(null);
+        setProgress(0);
+        const r = await uploadMedia(file, setProgress);
+        if (r.id) router.push(`/new/${r.id}`);
+        else {
+          setProgress(null);
+          setMediaError(r.error ?? "上传失败");
+        }
+      }}
+    >
       <label
         className="drop"
         style={{ marginBottom: 14, cursor: "pointer", borderColor: dragOver ? "var(--accent)" : undefined }}
@@ -31,12 +71,14 @@ export function UploadForm() {
         <div className="thumb">{fileName ? "已选择" : "拖到这里"}</div>
         <div style={{ minWidth: 0 }}>
           <b style={{ wordBreak: "break-all" }}>{fileName || "拖入文件，或点这里选择"}</b>
-          <div style={{ fontSize: 12, color: "var(--muted)" }}>现在支持长文本（.txt / .md）。音频、视频即将接入。</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+            {progress !== null ? `上传中 ${Math.round(progress * 100)}%` : "音频（mp3、m4a、wav……）或长文本（.txt / .md）。视频即将接入。"}
+          </div>
         </div>
         <input
           type="file"
           name="file"
-          accept=".txt,.md,.markdown,text/plain,text/markdown"
+          accept=".txt,.md,.markdown,text/plain,text/markdown,audio/*,.mp3,.m4a,.wav,.flac,.aac,.ogg"
           hidden
           onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")}
         />
@@ -54,10 +96,10 @@ export function UploadForm() {
         />
       </div>
 
-      {state.error && <div className="notice bad" style={{ marginBottom: 14 }}><span>!</span><div><b>{state.error}</b></div></div>}
+      {(mediaError ?? state.error) && <div className="notice bad" style={{ marginBottom: 14 }}><span>!</span><div><b>{mediaError ?? state.error}</b></div></div>}
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button className="btn primary" disabled={pending}>{pending ? "上传中…" : "交给清清"}</button>
+        <button className="btn primary" disabled={pending || progress !== null}>{pending || progress !== null ? "上传中…" : "交给清清"}</button>
       </div>
     </form>
   );

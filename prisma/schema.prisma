@@ -40,6 +40,8 @@ model Source {
   hits         Json     @default("[]")
   /// processing → prefilled → generating → review → approved；任何一步可 failed
   status       String   @default("processing")
+  /// 处理中的哪一步（给进度显示用）：extract | asr | cut | render | prefill
+  stage        String?
   error        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

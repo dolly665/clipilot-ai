@@ -10,6 +10,9 @@ import { restorePrefill, startGenerate, updateDraft, type ActionResult } from ".
 
 type Props = {
   id: string;
+  kind: "text" | "audio";
+  /** 音频的粗剪面板（替代文本的原文预览） */
+  mediaPanel?: React.ReactNode;
   draft: DraftFields;
   titleAlts: string[];
   reasons: { title: string; type: string; topic: string };
@@ -71,7 +74,16 @@ export function DraftForm(p: Props) {
   return (
     <div className="grid g-side">
       <div className="grid" style={{ alignContent: "start" }}>
-        <section className="panel">
+        {p.mediaPanel}
+        {p.kind === "audio" && (
+          <section className="panel">
+            <h2>识别出的文字 <small>前 400 字，完整稿在审核页</small></h2>
+            <div style={{ fontSize: 13, whiteSpace: "pre-wrap", maxHeight: 160, overflow: "hidden" }}>
+              <Highlighted text={p.excerpt} hits={p.excerptHits} />…
+            </div>
+          </section>
+        )}
+        {p.kind === "text" && <section className="panel">
           <h2>原文 <small>原文不改，只排版、加小标题和金句</small></h2>
           <div className="drop">
             <div className="thumb">{(p.size / 1024).toFixed(1)} KB</div>
@@ -79,7 +91,7 @@ export function DraftForm(p: Props) {
               <Highlighted text={p.excerpt} hits={p.excerptHits} />…
             </div>
           </div>
-        </section>
+        </section>}
 
         <section className="panel">
           <h2>发布信息 <small>都已预填，不对就点着改</small></h2>
@@ -106,7 +118,7 @@ export function DraftForm(p: Props) {
 
           <div className="field">
             <span className="lbl">素材类型</span>
-            <div><span className="chip acc">长文本</span></div>
+            <div><span className="chip acc">{p.kind === "audio" ? "音频" : "长文本"}</span></div>
           </div>
 
           <div className="field">
@@ -140,8 +152,18 @@ export function DraftForm(p: Props) {
             )}
           </div>
 
-          {group(<>整篇长文发到 <Tag field="platforms" edited={p.edited} /></>, p.available.filter((k) => PLATFORMS[k].format === "longform"))}
-          {group("拆成短帖发到", p.available.filter((k) => PLATFORMS[k].format === "post"))}
+          {p.kind === "audio" ? (
+            <>
+              {group(<>播客平台 <Tag field="platforms" edited={p.edited} /></>, p.available.filter((k) => PLATFORMS[k].format === "podcast"))}
+              {group("整理成文章发到", p.available.filter((k) => PLATFORMS[k].format === "longform"))}
+              <span className="hint" style={{ display: "block", margin: "-8px 0 18px" }}>配画面合成视频、发视频平台以后再做。</span>
+            </>
+          ) : (
+            <>
+              {group(<>整篇长文发到 <Tag field="platforms" edited={p.edited} /></>, p.available.filter((k) => PLATFORMS[k].format === "longform"))}
+              {group("拆成短帖发到", p.available.filter((k) => PLATFORMS[k].format === "post"))}
+            </>
+          )}
 
           {error && <div style={{ marginBottom: 12 }}><Notice tone="bad" icon="!" title={error} /></div>}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
@@ -159,9 +181,12 @@ export function DraftForm(p: Props) {
         <section className="panel">
           <h2>点「确认」之后</h2>
           <div className="row-list" style={{ fontSize: 13 }}>
-            <div><div className="t"><b>公众号长文</b><span>排版、小标题、金句</span></div></div>
-            <div><div className="t"><b>知乎</b><span>完整文章 + 一条想法，标题改成问题式</span></div></div>
-            <div><div className="t"><b>短帖</b><span>公众号贴图、小红书图文、微博、YouTube 社区帖，各自改写长度和语气</span></div></div>
+            {(p.kind === "audio"
+              ? [["播客音频", "按上面的粗剪出成品，响度统一到 -16 LUFS"], ["节目说明", "简介 + 章节时间轴"], ["公众号长文", "把讲的内容整理成文章"], ["知乎", "文章 + 一条想法，标题改成问题式"]]
+              : [["公众号长文", "排版、小标题、金句"], ["知乎", "完整文章 + 一条想法，标题改成问题式"], ["短帖", "公众号贴图、小红书图文、微博、YouTube 社区帖，各自改写长度和语气"]]
+            ).map(([a, b]) => (
+              <div key={a}><div className="t"><b>{a}</b><span>{b}</span></div></div>
+            ))}
           </div>
           <p style={{ fontSize: 12, color: "var(--muted)", margin: "10px 0 0" }}>全部好了会进「审核」。没有你批准，什么都不会发布。</p>
         </section>

@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { RoughCutLevel } from "@/domain/types";
 import type { DraftFields } from "@/server/sources";
-import { runInBackground, sources } from "@/server/app";
+import { prisma, runInBackground, sources } from "@/server/app";
 
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 
@@ -40,7 +41,10 @@ export async function uploadText(_: ActionResult, form: FormData): Promise<Actio
 }
 
 export async function retryPrefill(id: string) {
-  runInBackground(`预填 ${id}`, () => sources.prefill(id));
+  const s = await prisma.source.findUniqueOrThrow({ where: { id } });
+  // 音频如果连识别都没完成，从头处理；否则只重跑预填
+  if (s.kind === "audio" && !s.transcript) runInBackground(`处理音频 ${id}`, () => sources.processAudio(id));
+  else runInBackground(`预填 ${id}`, () => sources.prefill(id));
   revalidatePath(`/new/${id}`);
 }
 
@@ -93,5 +97,27 @@ export async function approve(id: string, scheduledAtIso: string): Promise<Actio
     return { error: message(e) };
   }
   revalidatePath("/", "layout");
+  return {};
+}
+
+export async function setCutLevel(id: string, level: RoughCutLevel): Promise<ActionResult> {
+  try {
+    await sources.setCutLevel(id, level);
+  } catch (e) {
+    return { error: message(e) };
+  }
+  runInBackground(`渲染粗剪 ${id}`, () => sources.renderRoughCut(id));
+  revalidatePath(`/new/${id}`);
+  return {};
+}
+
+export async function toggleCut(id: string, cutId: string): Promise<ActionResult> {
+  try {
+    await sources.toggleCut(id, cutId);
+  } catch (e) {
+    return { error: message(e) };
+  }
+  runInBackground(`渲染粗剪 ${id}`, () => sources.renderRoughCut(id));
+  revalidatePath(`/new/${id}`);
   return {};
 }

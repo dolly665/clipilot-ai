@@ -31,3 +31,19 @@ export const ShortPostsSchema = z.object({
   ytc: z.object({ text: z.string().min(1) }),
 });
 export type ShortPosts = z.infer<typeof ShortPostsSchema>;
+
+export const SpokenArticleSchema = z.object({
+  title: z.string().min(1),
+  lead: z.string().default(""),
+  blocks: z
+    .array(z.object({ type: z.enum(["heading", "paragraph", "quote"]), text: z.string().min(1) }))
+    .min(1)
+    .refine((b) => b.some((x) => x.type === "paragraph"), "至少要有一段正文"),
+});
+export type SpokenArticle = z.infer<typeof SpokenArticleSchema>;
+
+export const ShownotesSchema = z.object({
+  summary: z.string().min(1),
+  chapters: z.array(z.object({ at: z.string(), title: z.string().min(1) })).default([]),
+});
+export type Shownotes = z.infer<typeof ShownotesSchema>;

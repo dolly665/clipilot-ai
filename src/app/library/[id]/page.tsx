@@ -10,22 +10,27 @@ import { scanSensitive } from "@/domain/compliance";
 import { derivativeCopyText, type DerivativeContent } from "@/domain/derivatives";
 import type { Article } from "@/domain/longform";
 import { isPlatformKey, METHOD_LABEL, PLATFORMS, type PlatformKey } from "@/domain/platforms";
-import { CONTENT_TYPES } from "@/domain/types";
+import { formatTime } from "@/domain/transcript";
+import { CONTENT_TYPES, ROUGH_CUT_LEVELS } from "@/domain/types";
 import { prisma } from "@/server/app";
-import { defaultScheduleTime, readDraft, readHits } from "@/server/sources";
+import { cutStats } from "@/domain/roughcut";
+import { defaultScheduleTime, readDraft, readHits, readRoughCut } from "@/server/sources";
 
-type Tab = "article" | "zhihu" | "posts" | "original";
-const TABS: [Tab, string][] = [["article", "公众号长文"], ["zhihu", "知乎"], ["posts", "短帖"], ["original", "原文"]];
+type Tab = "podcast" | "article" | "zhihu" | "posts" | "original";
+const TEXT_TABS: [Tab, string][] = [["article", "公众号长文"], ["zhihu", "知乎"], ["posts", "短帖"], ["original", "原文"]];
+const AUDIO_TABS: [Tab, string][] = [["podcast", "播客"], ["article", "公众号长文"], ["zhihu", "知乎"], ["original", "转录稿"]];
 
 export default async function SourceDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const { id } = await params;
   const sp = await searchParams;
-  const tab: Tab = TABS.find(([k]) => k === sp.tab)?.[0] ?? "article";
   const s = await prisma.source.findUnique({
     where: { id },
     include: { derivatives: { orderBy: { createdAt: "asc" } }, jobs: true },
   });
   if (!s) notFound();
+  const isAudio = s.kind === "audio";
+  const TABS = isAudio ? AUDIO_TABS : TEXT_TABS;
+  const tab: Tab = TABS.find(([k]) => k === sp.tab)?.[0] ?? TABS[0]![0];
   const draft = readDraft(s);
   const words = (await prisma.sensitiveWord.findMany()).map((w) => w.word);
   const hl = (text: string) => <Highlighted text={text} hits={scanSensitive(text, words)} />;
@@ -65,7 +70,23 @@ export default async function SourceDetailPage({ params, searchParams }: { param
   let body: ReactNode = null;
   if (s.status === "generating") body = <section className="panel" style={{ textAlign: "center", padding: 40 }}><b>正在生成全部成品…</b><p style={{ color: "var(--muted)" }}>好了会自动刷新。</p></section>;
   else if (s.status === "failed") body = <Notice tone="bad" icon="!" title="生成失败">{s.error} <Link href={`/new/${id}`}>回到发布信息重试</Link></Notice>;
-  else if (tab === "article") {
+  else if (tab === "podcast") {
+    const d = ders.find((x) => x.c.kind === "podcast");
+    body = d?.c.kind === "podcast" && (
+      <div className="grid" style={{ gap: 16 }}>
+        <div className="copycard">
+          <header><b>播客音频</b><span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{formatTime(d.c.durationSec)}</span></header>
+          <audio controls preload="metadata" style={{ width: "100%" }} src={`/api/derivatives/${d.id}/file`} />
+          <div style={{ display: "flex", justifyContent: "flex-end" }}><a className="btn sm" href={`/api/derivatives/${d.id}/file?download=1`}>下载音频</a></div>
+        </div>
+        <div className="copycard">
+          <header><b>节目说明</b><span style={{ fontSize: 12, color: "var(--muted)" }}>小宇宙、喜马拉雅共用</span></header>
+          <div className="cfield"><div className="val">{hl(d.c.shownotes)}</div></div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>{meta(d)}{actions(d)}</div>
+        </div>
+      </div>
+    );
+  } else if (tab === "article") {
     const d = ders.find((x) => x.c.kind === "longform");
     body = d?.c.kind === "longform" && (
       <div className="grid" style={{ gap: 10 }}>
@@ -136,7 +157,13 @@ export default async function SourceDetailPage({ params, searchParams }: { param
             <dl className="kv" style={{ marginTop: 0 }}>
               <dt>源文件</dt><dd className="mono" style={{ fontSize: 12, wordBreak: "break-all" }}>{s.originalName}</dd>
               <dt>Source</dt><dd className="mono" style={{ fontSize: 12, wordBreak: "break-all" }}>{s.id}</dd>
-              <dt>大小</dt><dd>{(s.sizeBytes / 1024).toFixed(1)} KB · {[...(s.text ?? "")].length} 字</dd>
+              <dt>大小</dt><dd>{s.sizeBytes > 1024 * 1024 ? `${(s.sizeBytes / 1024 / 1024).toFixed(1)} MB` : `${(s.sizeBytes / 1024).toFixed(1)} KB`}{isAudio && s.durationSec ? ` · ${formatTime(s.durationSec)}` : ` · ${[...(s.text ?? "")].length} 字`}</dd>
+              {(() => {
+                const rc = readRoughCut(s);
+                if (!rc || !s.durationSec) return null;
+                const st = cutStats(rc.cuts, rc.restored, s.durationSec);
+                return <><dt>粗剪</dt><dd>{ROUGH_CUT_LEVELS[rc.level]} · 删 {st.count} 处，共 {formatTime(st.removed)}</dd></>;
+              })()}
               <dt>成品</dt><dd>{ders.length} 件</dd>
             </dl>
           </section>

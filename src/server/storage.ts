@@ -27,3 +27,28 @@ export async function saveOriginal(sourceId: string, originalName: string, data:
   const { size } = await fs.stat(abs);
   return { rel, abs, size };
 }
+
+/** 把上传到临时目录的大文件挪成原始素材（不复制，直接改名），并设为只读 */
+export async function adoptOriginal(sourceId: string, originalName: string, tempPath: string, root = dataDir()) {
+  const rel = path.posix.join("sources", sourceId, `original${safeExt(originalName)}`);
+  const abs = resolveData(rel, root);
+  await fs.mkdir(path.dirname(abs), { recursive: true });
+  await fs.rename(tempPath, abs);
+  await fs.chmod(abs, 0o444);
+  const { size } = await fs.stat(abs);
+  return { rel, abs, size };
+}
+
+/** 中间文件（给识别用的音轨等），可以随时删掉重建 */
+export function workPath(sourceId: string, name: string) {
+  return path.posix.join("work", sourceId, name);
+}
+
+/** 派生成品文件 */
+export function derivativePath(sourceId: string, name: string) {
+  return path.posix.join("derivatives", sourceId, name);
+}
+
+export function tempUploadPath(name: string) {
+  return path.posix.join("tmp", name);
+}

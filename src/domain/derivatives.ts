@@ -6,7 +6,8 @@ export type DerivativeContent =
   | { kind: "longform"; article: Article }
   | { kind: "zhihu_article"; question: string; article: Article }
   | { kind: "zhihu_idea"; text: string }
-  | { kind: "post"; title?: string; text: string; tags?: string[] };
+  | { kind: "post"; title?: string; text: string; tags?: string[] }
+  | { kind: "podcast"; title: string; shownotes: string; durationSec: number };
 
 export type DerivativeKind = DerivativeContent["kind"];
 
@@ -15,6 +16,7 @@ export const DERIVATIVE_LABEL: Record<DerivativeKind, string> = {
   zhihu_article: "知乎文章",
   zhihu_idea: "知乎想法",
   post: "短帖",
+  podcast: "播客音频",
 };
 
 /** 每个平台的发布任务挂在哪种成品上 */
@@ -25,6 +27,9 @@ export const JOB_DERIVATIVE: Partial<Record<PlatformKey, DerivativeKind>> = {
   xhsn: "post",
   wb: "post",
   ytc: "post",
+  xyz: "podcast",
+  xmly: "podcast",
+  pod: "podcast",
 };
 
 /** 用于合规扫描的全部文字 */
@@ -38,6 +43,8 @@ export function derivativeText(c: DerivativeContent): string {
       return c.text;
     case "post":
       return [c.title, c.text, c.tags?.map((t) => `#${t}`).join(" ")].filter(Boolean).join("\n\n");
+    case "podcast":
+      return `${c.title}\n\n${c.shownotes}`;
   }
 }
 

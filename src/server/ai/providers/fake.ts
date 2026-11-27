@@ -77,6 +77,26 @@ function fakeResult({ task, user }: CompleteRequest): unknown {
         ytc: { text: clip(text, 300) },
       };
     }
+    case "spoken-article": {
+      const text = between(user, "<<<口播稿", "口播稿>>>");
+      const lines = text.split("\n").filter(Boolean);
+      const half = Math.ceil(lines.length / 2);
+      return {
+        title: /预填标题：(.*)/.exec(user)?.[1]?.trim() || "无题",
+        lead: "这是假数据整理的导语。",
+        blocks: [
+          { type: "heading", text: "先说结论" },
+          { type: "paragraph", text: lines.slice(0, half).join("") || "（空）" },
+          { type: "heading", text: "再往深一层" },
+          { type: "paragraph", text: lines.slice(half).join("") || "（空）" },
+        ],
+      };
+    }
+    case "shownotes": {
+      const times = [...between(user, "<<<逐句稿", "逐句稿>>>").matchAll(/^\[([\d:]+)\]/gm)].map((m) => m[1]!);
+      const pick = [times[0] ?? "00:00", times[Math.floor(times.length / 2)] ?? "00:00"];
+      return { summary: "【假数据】这期聊聊作者最近的一些想法。", chapters: [{ at: pick[0], title: "开场" }, { at: pick[1], title: "正题" }] };
+    }
     default:
       throw new Error(`fake 提供方不认识任务 ${task}`);
   }
