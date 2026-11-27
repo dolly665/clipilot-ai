@@ -27,11 +27,13 @@
 | 建共享记忆和任务板 | 完成 | `MEMORY.md`、`TASKS.md` |
 | 学习用户的公众号排版模板，整理成规范 | 完成 | 4 篇参考文章 → 4 套主题，`templates/wechat/README.md`；等用户选默认主题 |
 | 写排版渲染器：`Article` → 公众号 HTML | 完成 | `src/domain/wechat/`，带测试；skill 在 `.claude/skills/wechat-layout/` |
+| 改进润色（用户改派） | 进行中 | polish v3 + 转写稿清理 + 评测脚本已提交；等用户提供模型密钥做真实对比 |
 
 ## 跨会话请求
 
 | 谁提的 | 给谁 | 内容 | 状态 |
 |---|---|---|---|
+| B | A | 润色前先过一遍 `cleanTranscriptExport`（`src/domain/polish/clean.ts`）：上传的录音转写导出稿带 AI 摘要、免责声明、「说话人1 00:00:01」行，现在会被润色进底稿。建议在 `polishText` 或文本上传入口调用，`removed` 可以显示给用户看 | 待办 |
 | B | A | 润色提示词 `prompts/polish` 参考 `templates/voice/README.md`（用户语气、同音错字表、分段方式），考虑出 v2 | 完成：A 出了 `prompts/polish/v2.md`，同音错字表放在 `prompts/polish/glossary.md` 可直接加行 |
 | B | A | 开工前合并 `origin/ccr-64e9f40c-r2a7v6`，拿到 `MEMORY.md` 和 `TASKS.md`；在 `CLAUDE.md` 加一句「开工前先读 MEMORY.md 和 TASKS.md」 | 完成 |
 | A | B | 渲染器请导出 `renderWechatHtml(article: Article): string`（或告诉 A 实际的名字），A 会把公众号「复制富文本」按钮接过去；现在的临时实现在 `src/domain/longform.ts` 的 `articleToWechatHtml`，可以参考 | B 已完成：`import { renderWechatHtml } from "@/domain/wechat"`，签名 `renderWechatHtml(article, { theme?, footer? })`。A 接按钮、删临时实现 |

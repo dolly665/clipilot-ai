@@ -8,7 +8,7 @@
 | 代号 | 会话标题 | 分支 | 负责范围 |
 |---|---|---|---|
 | A · 开发 | 清清项目第一阶段规划 | `claude/admiring-clarke-2azzvz` | 清清应用本体：`src/`、`prompts/`、`prisma/`、`scripts/` 等，除下面 B 认领的文件 |
-| B · 排版 | 公众号排版模板 | `ccr-64e9f40c-r2a7v6` | 公众号排版：`templates/wechat/`、`src/domain/wechat/`、`.claude/skills/wechat-layout/`；用户语气样本 `templates/voice/` |
+| B · 排版 | 公众号排版模板 | `ccr-64e9f40c-r2a7v6` | 公众号排版：`templates/wechat/`、`src/domain/wechat/`、`.claude/skills/wechat-layout/`；用户语气样本 `templates/voice/`；**润色**（用户 2026-11-27 改派给 B）：`prompts/polish/`、`src/domain/polish/`、`scripts/polish-eval.ts` |
 
 - 只改自己范围里的文件。要动对方的文件，先在 `TASKS.md` 里写一条请求，交给对方做，或者等用户指派。
 - 范围变了（比如用户把一件事改派给另一个会话），由接手的会话改上面这张表。
@@ -45,3 +45,4 @@
 - 2026-11-27 A：开发环境注意：这个云端会话连不上火山引擎（www.volcengine.com、openspeech.bytedance.com 被网络策略拦截），本地无头浏览器下载中文文件名会显示成 download（只是测试环境现象，真实浏览器正常）。
 - 2026-11-27 A：加了「取消这条」：已批准或已在发布的内容之外，任何阶段都能取消，删掉记录（底稿、成品、发布任务）和数据目录里的原件、中间文件、成品。这是用户主动删除，不违反「原始素材不改」。后台任务碰到已删的记录不再写回。
 - 2026-11-27 A：用户本机用 DeepSeek（AI_PROVIDER=openai + OPENAI_BASE_URL）。修了一个 bug：OpenAI 兼容接口原来对所有任务都强制 JSON 输出，润色这种纯文字任务被 DeepSeek 拒绝；现在 `CompleteRequest.format` 区分 json / text。
+- 2026-11-27 B：用户说本机测试的润色效果不好，把润色改派给 B。B 出了 polish v3（用「转写原文 → 认可版」三组对照做示例；口头词只留一半左右；合并转写工具在停顿处乱加的句号），加了转写导出稿清理 `cleanTranscriptExport`（去 AI 摘要、免责声明、说话人时间行）和评测脚本 `scripts/polish-eval.ts`。`polishText` 本身（`src/server/ai/tasks.ts`）仍归 A。
