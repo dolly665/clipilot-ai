@@ -13,8 +13,8 @@ import { layoutLongform, polishText, shortPosts, shownotes, spokenArticle, textK
 import { defaultAsr, type AsrProvider } from "./asr";
 import { dataDir } from "./env";
 import { extractSpeechAudio, probe, renderAudioCut } from "./media/ffmpeg";
-import { generateVideoItems } from "./video";
-import { adoptOriginal, derivativePath, removeSourceFiles, resolveData, saveOriginal, workPath } from "./storage";
+import { generateAudioVideoItems, generateVideoItems } from "./video";
+import { adoptOriginal, audioBackground, derivativePath, removeSourceFiles, resolveData, saveOriginal, workPath } from "./storage";
 
 export type SourceStatus = "processing" | "drafting" | "prefilled" | "generating" | "review" | "approved" | "failed";
 export type TextMode = "polish" | "layout";
@@ -620,7 +620,24 @@ export function sourceService({ db, provider, asr, root = dataDir() }: Deps) {
     const s = await get(id);
     const rc = readRoughCut(s);
     if (!rc?.rendered || rc.rendered.version !== rc.version) throw new Error("播客音频还没渲染好");
-    return replaceDerivatives(id, await spokenExtras(s, rc, { podcast: true, article: true }));
+    const d = readDraft(s);
+    // 勾了视频平台：用剪好的声音配照片、声波和字幕出一条横屏视频
+    const video = d.platforms.some((k) => PLATFORMS[k].format === "video")
+      ? await generateAudioVideoItems({
+          sourceId: id,
+          audio: rc.rendered.path,
+          cleaned: cleanedTranscript(s, rc),
+          version: rc.version,
+          title: d.title,
+          topic: d.topic,
+          platforms: d.platforms,
+          photo: await audioBackground(root),
+          root,
+          ai,
+          onStage: (stage) => setStage(id, stage),
+        })
+      : [];
+    return replaceDerivatives(id, [...video, ...(await spokenExtras(s, rc, { podcast: true, article: true }))]);
   }
 
   /** 视频：粗剪成片、字幕、封面、各平台文案；横屏另出长文和播客（按勾选） */

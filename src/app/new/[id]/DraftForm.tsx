@@ -176,7 +176,8 @@ export function DraftForm(p: Props) {
             <>
               {group(<>播客平台 <Tag field="platforms" edited={p.edited} /></>, p.available.filter((k) => PLATFORMS[k].format === "podcast"))}
               {group("整理成文章发到", p.available.filter((k) => PLATFORMS[k].format === "longform"))}
-              <span className="hint" style={{ display: "block", margin: "-8px 0 18px" }}>配画面合成视频、发视频平台以后再做。</span>
+              {group("配画面做成横屏视频，发到", p.available.filter((k) => PLATFORMS[k].format === "video"))}
+              <span className="hint" style={{ display: "block", margin: "-8px 0 18px" }}>画面是一张照片 + 声波 + 大字幕，照片在「平台与规则」里换。</span>
             </>
           ) : (
             <>
@@ -204,7 +205,7 @@ export function DraftForm(p: Props) {
             {(p.kind === "video"
               ? [["粗剪成片", "按上面的粗剪剪画面和声音，响度统一"], ["字幕", "SRT 文件；竖屏和视频号另出一版字幕烧进画面"], ["封面", "从成片里挑 3 帧，叠上标题后下载"], ["各平台文案", "每个视频平台各自的标题、简介、标签"], ["横屏另出", "勾了播客、公众号、知乎的话，顺带出播客音频和长文"]]
               : p.kind === "audio"
-              ? [["播客音频", "按上面的粗剪出成品，响度统一到 -16 LUFS"], ["节目说明", "简介 + 章节时间轴"], ["公众号长文", "把讲的内容整理成文章"], ["知乎", "文章 + 一条想法，标题改成问题式"]]
+              ? [["播客音频", "按上面的粗剪出成品，响度统一到 -16 LUFS"], ["节目说明", "简介 + 章节时间轴"], ["公众号长文", "把讲的内容整理成文章"], ["知乎", "文章 + 一条想法，标题改成问题式"], ["横屏视频", "勾了视频平台的话：照片 + 声波 + 字幕，另出 SRT、封面和各平台文案"]]
               : [["公众号长文", "排版、小标题、金句"], ["知乎", "完整文章 + 一条想法，标题改成问题式"], ["短帖", "公众号贴图、小红书图文、微博、YouTube 社区帖，各自改写长度和语气"]]
             ).map(([a, b]) => (
               <div key={a}><div className="t"><b>{a}</b><span>{b}</span></div></div>

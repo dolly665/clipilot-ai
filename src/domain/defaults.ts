@@ -2,10 +2,10 @@ import { PLATFORM_KEYS, PLATFORMS, type PlatformKey } from "./platforms";
 import type { ContentType, Orient, SourceKind } from "./types";
 
 /**
- * 音频配 B roll 合成视频推迟到第一阶段之后；在那之前音频只发播客和长文。
- * 做好后把它改成 true，音频就会出现视频平台。
+ * 音频配画面合成视频：先做了最省事的版本（照片 + 声波 + 字幕），音频可以发横屏视频平台。
+ * 配 B roll 的版本以后再做。
  */
-export const AUDIO_TO_VIDEO_READY = false;
+export const AUDIO_TO_VIDEO_READY = true;
 
 /** 这种素材可以发到哪些平台（UI 里列出来供勾选） */
 export function availablePlatforms(kind: SourceKind, orient: Orient): PlatformKey[] {

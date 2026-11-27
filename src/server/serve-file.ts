@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { Readable } from "node:stream";
 
-const MIME: Record<string, string> = { mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav", mp4: "video/mp4", srt: "text/plain; charset=utf-8", jpg: "image/jpeg", png: "image/png" };
+const MIME: Record<string, string> = { mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav", mp4: "video/mp4", srt: "text/plain; charset=utf-8", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
 
 /** 发送本地文件，支持 Range（音视频播放器拖动进度条要用） */
 export function serveFile(req: Request, abs: string, opts: { downloadName?: string } = {}): Response {

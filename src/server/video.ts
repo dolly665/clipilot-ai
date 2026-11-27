@@ -7,7 +7,7 @@ import type { Transcript } from "@/domain/transcript";
 import type { Orient, Topic } from "@/domain/types";
 import type { AiProvider } from "./ai";
 import { videoCopy } from "./ai/tasks";
-import { burnSubtitles, extractFrames, renderVideoCut } from "./media/ffmpeg";
+import { burnSubtitles, extractFrames, renderAudioVideo, renderVideoCut } from "./media/ffmpeg";
 import { derivativePath, resolveData } from "./storage";
 import type { Segment } from "@/domain/roughcut";
 
@@ -68,20 +68,74 @@ export async function generateVideoItems(input: {
     items.push({ platform: null, content: { kind: "video", variant: "burned", orient, durationSec: duration }, filePath: burnedRel, prompt: null });
   }
 
+  items.push(...(await coverAndCopy({ ...input, video: cleanRel, duration })));
+  return items;
+}
+
+/** 封面候选帧 + 各视频平台文案（视频和音频配画面共用） */
+async function coverAndCopy(input: {
+  sourceId: string;
+  video: string;
+  duration: number;
+  cleaned: Transcript;
+  orient: Orient;
+  title: string;
+  topic: Topic;
+  platforms: PlatformKey[];
+  root: string;
+  ai: { provider?: AiProvider };
+  onStage?: (stage: string) => Promise<void>;
+}): Promise<VideoItem[]> {
+  const items: VideoItem[] = [];
   await input.onStage?.("cover");
-  const times = [0.15, 0.4, 0.65].map((f) => Math.max(0, duration * f));
-  const frames = await extractFrames(resolveData(cleanRel, root), times, resolveData(rel("cover"), root));
-  const frameRels = frames.map((f) => rel(`cover/${path.basename(f)}`));
-  items.push({ platform: null, content: { kind: "cover", frames: frameRels, title: input.title, orient }, filePath: frameRels[0], prompt: null });
+  const times = [0.15, 0.4, 0.65].map((f) => Math.max(0, input.duration * f));
+  const frames = await extractFrames(resolveData(input.video, input.root), times, resolveData(derivativePath(input.sourceId, "cover"), input.root));
+  const frameRels = frames.map((f) => derivativePath(input.sourceId, `cover/${path.basename(f)}`));
+  items.push({ platform: null, content: { kind: "cover", frames: frameRels, title: input.title, orient: input.orient }, filePath: frameRels[0], prompt: null });
 
   const targets = input.platforms.filter((k) => VIDEO_PLATFORMS.includes(k));
   if (targets.length) {
     await input.onStage?.("copy");
-    const r = await videoCopy({ transcript: input.cleaned, title: input.title, topic: input.topic, orient, platforms: targets }, input.ai);
+    const r = await videoCopy({ transcript: input.cleaned, title: input.title, topic: input.topic, orient: input.orient, platforms: targets }, input.ai);
     for (const k of targets) {
       const c = r.data.platforms[k as keyof typeof r.data.platforms]!;
       items.push({ platform: k, content: { kind: "video_copy", title: c.title, desc: c.desc, tags: c.tags }, prompt: r.prompt });
     }
   }
+  return items;
+}
+
+/**
+ * 音频配画面（最省事的版本）：照片 + 声波 + 字幕烧进画面，横屏。
+ * 声音用剪好的播客音频；同时出 SRT、封面候选帧和各视频平台文案。
+ */
+export async function generateAudioVideoItems(input: {
+  sourceId: string;
+  audio: string;
+  cleaned: Transcript;
+  version: number;
+  title: string;
+  topic: Topic;
+  platforms: PlatformKey[];
+  photo: string | null;
+  root: string;
+  ai: { provider?: AiProvider };
+  onStage?: (stage: string) => Promise<void>;
+}): Promise<VideoItem[]> {
+  const { sourceId, root, version } = input;
+  const items: VideoItem[] = [];
+  const cues = buildCues(input.cleaned, "h");
+  const srtRel = derivativePath(sourceId, `subtitles-v${version}.srt`);
+  const srtAbs = resolveData(srtRel, root);
+  await fs.mkdir(path.dirname(srtAbs), { recursive: true });
+  await fs.writeFile(srtAbs, toSrt(cues), "utf8");
+  items.push({ platform: null, content: { kind: "subtitle", cues: cues.length }, filePath: srtRel, prompt: null });
+
+  await input.onStage?.("render_video");
+  const videoRel = derivativePath(sourceId, `audio-video-v${version}.mp4`);
+  await renderAudioVideo(resolveData(input.audio, root), cues.length ? srtAbs : null, resolveData(videoRel, root), { photo: input.photo });
+  items.push({ platform: null, content: { kind: "video", variant: "burned", orient: "h", durationSec: input.cleaned.duration }, filePath: videoRel, prompt: null });
+
+  items.push(...(await coverAndCopy({ ...input, video: videoRel, duration: input.cleaned.duration, orient: "h" })));
   return items;
 }

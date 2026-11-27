@@ -36,7 +36,7 @@ describe("音频链路：上传 → 识别 → 粗剪 → 预填 → 生成 → 
     expect(s.stage).toBeNull();
     const d = readDraft(s);
     expect(s.type).toBe("audio");
-    expect(d.platforms.sort()).toEqual(["gzh", "xmly", "xyz"]);
+    expect(d.platforms.sort()).toEqual(["bili", "gzh", "sph", "xmly", "xyz", "yt"]);
 
     const rc = readRoughCut(s)!;
     expect(rc.level).toBe("standard");
@@ -50,16 +50,44 @@ describe("音频链路：上传 → 识别 → 粗剪 → 预填 → 生成 → 
     expect(g.error).toBeNull();
     expect(g.status).toBe("review");
     const ders = await db.prisma.derivative.findMany({ where: { sourceId: s.id } });
-    expect(ders.map((x) => x.kind).sort()).toEqual(["longform", "podcast", "zhihu_article", "zhihu_idea"]);
+    expect(ders.map((x) => x.kind).sort()).toEqual([
+      "cover", "longform", "podcast", "subtitle", "video", "video_copy", "video_copy", "video_copy", "zhihu_article", "zhihu_idea",
+    ]);
+    // 配画面的横屏视频：照片（这里没传，用纯色）+ 声波 + 字幕，时长和播客音频一致
+    const vid = ders.find((x) => x.kind === "video")!;
+    const vinfo = await probe(path.join(db.dir, vid.filePath!));
+    expect(vinfo).toMatchObject({ hasVideo: true, hasAudio: true, width: 1920, height: 1080 });
+    expect(vinfo.duration).toBeCloseTo(readRoughCut(g)!.rendered!.duration, 0);
     const pod = ders.find((x) => x.kind === "podcast")!;
     expect(fs.existsSync(path.join(db.dir, pod.filePath!))).toBe(true);
     expect(JSON.stringify(pod.content)).toContain("时间轴");
 
     const jobs = await db.prisma.publishJob.findMany({ where: { sourceId: s.id } });
-    expect(jobs.map((j) => j.platform).sort()).toEqual(["gzh", "xmly", "xyz"]);
+    expect(jobs.map((j) => j.platform).sort()).toEqual(["bili", "gzh", "sph", "xmly", "xyz", "yt"]);
     expect(jobs.find((j) => j.platform === "xyz")?.derivativeId).toBe(pod.id);
 
     expect(fs.readFileSync(original).equals(before)).toBe(true);
+  });
+
+  it("不勾视频平台就不出视频；传了照片就用照片当背景", { timeout: 60_000 }, async () => {
+    const s = await svc.processAudio((await upload(20)).id);
+    await svc.updateDraft(s.id, { platforms: ["xyz", "gzh"] });
+    await svc.startGenerate(s.id);
+    await svc.generate(s.id);
+    expect((await db.prisma.derivative.findMany({ where: { sourceId: s.id } })).map((x) => x.kind)).not.toContain("video");
+
+    const { saveAudioBackground, audioBackground } = await import("@/server/storage");
+    const jpg = path.join(db.dir, "tmp", "bg.jpg");
+    const { execFileSync } = await import("node:child_process");
+    execFileSync("ffmpeg", ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=red:s=640x480", "-frames:v", "1", jpg]);
+    await saveAudioBackground(fs.readFileSync(jpg), "jpg", db.dir);
+    expect(await audioBackground(db.dir)).toMatch(/audio-bg\.jpg$/);
+    const s2 = await svc.processAudio((await upload(20)).id);
+    await svc.startGenerate(s2.id);
+    const g2 = await svc.generate(s2.id);
+    expect(g2.error).toBeNull();
+    const vid = (await db.prisma.derivative.findMany({ where: { sourceId: s2.id, kind: "video" } }))[0]!;
+    expect((await probe(path.join(db.dir, vid.filePath!))).width).toBe(1920);
   });
 
   it("恢复一刀后重新渲染，试听变长", async () => {
